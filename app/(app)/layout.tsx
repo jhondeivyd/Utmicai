@@ -1,5 +1,7 @@
 import { getContext } from "@/lib/session";
 import WsSwitcher from "@/components/WsSwitcher";
+import Nav from "@/components/Nav";
+import { Logo } from "@/components/Icon";
 import { logout } from "../login/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -7,17 +9,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="shell">
       <aside className="side">
-        <div className="logo">Utm<span>Cai</span></div>
-        <nav className="nav">
-          <a href="/dashboard">Dashboard</a>
-          <a href="/vendas">Vendas</a>
-          {ctx.canEdit && <a href="/config">Configurações</a>}
-          {ctx.isAdmin && <a href="/admin">Admin</a>}
-        </nav>
+        <div className="brand"><Logo /><b>Utm<span>Cai</span></b></div>
+        <Nav canEdit={ctx.canEdit} isAdmin={ctx.isAdmin} />
         <div className="side-foot">
-          <div style={{ marginBottom: 8 }}><WsSwitcher list={ctx.workspaces} current={ctx.ws?.id} /></div>
-          <div>{ctx.user.email}</div>
-          <form action={logout}><button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}>Sair</button></form>
+          <WsSwitcher list={ctx.workspaces} current={ctx.ws?.id} />
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{ctx.user.email}</div>
+          <form action={logout}><button className="btn btn-ghost btn-sm">Sair</button></form>
         </div>
       </aside>
       <main className="main">
