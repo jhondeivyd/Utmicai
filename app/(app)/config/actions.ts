@@ -59,3 +59,19 @@ export async function rotateToken(fd: FormData) {
   await admin().from("workspaces").update({ webhook_token: token }).eq("id", wsId);
   back("Novo token gerado — atualize as URLs de webhook nos checkouts");
 }
+
+export async function saveCosts(fd: FormData) {
+  const wsId = String(fd.get("ws"));
+  await assertCanEdit(wsId);
+  const n = (k: string) => Math.max(0, Number(String(fd.get(k) || "0").replace(",", ".")) || 0);
+  const db = admin();
+  const { error } = await db.from("workspaces").update({ tax_percent: n("tax_percent"), gateway_fee_percent: n("gateway_fee_percent"), fixed_cost_per_sale: n("fixed_cost_per_sale") }).eq("id", wsId);
+  if (error) return back(error.message, false);
+  const rows = String(fd.get("product_costs") || "").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+    const i = l.lastIndexOf("=");
+    return i > 0 ? { workspace_id: wsId, product_name: l.slice(0, i).trim(), cost: Number(l.slice(i + 1).trim().replace(",", ".")) || 0 } : null;
+  }).filter(Boolean) as any[];
+  await db.from("product_costs").delete().eq("workspace_id", wsId);
+  if (rows.length) await db.from("product_costs").insert(rows);
+  back("Custos guardados");
+}
