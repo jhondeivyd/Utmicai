@@ -91,36 +91,3 @@ export function saleMessage(ws: any, sale: any) {
   ];
   return lines.filter(Boolean).join("\n");
 }
-
-// ---------- Meta Ads: gasto ----------
-export async function fetchMetaSpend(token: string, accountId: string, since: string, until: string) {
-  const act = accountId.startsWith("act_") ? accountId : `act_${accountId}`;
-  const params = new URLSearchParams({
-    level: "ad",
-    fields: "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,impressions,clicks",
-    time_increment: "1",
-    time_range: JSON.stringify({ since, until }),
-    limit: "500",
-    access_token: token
-  });
-  let url: string | null = `${GRAPH()}/${act}/insights?${params}`;
-  const rows: any[] = [];
-  let guard = 0;
-  while (url && guard++ < 50) {
-    const r = await fetch(url);
-    const j: any = await r.json();
-    if (!r.ok || j.error) throw new Error(j?.error?.message || `Meta ${r.status}`);
-    rows.push(...(j.data || []));
-    url = j.paging?.next || null;
-  }
-  return rows.map((x) => ({
-    date: x.date_start,
-    account_id: act,
-    campaign_id: x.campaign_id, campaign_name: x.campaign_name,
-    adset_id: x.adset_id, adset_name: x.adset_name,
-    ad_id: x.ad_id, ad_name: x.ad_name,
-    spend: Number(x.spend) || 0,
-    impressions: Number(x.impressions) || 0,
-    clicks: Number(x.clicks) || 0
-  }));
-}
