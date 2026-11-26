@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getContext } from "@/lib/session";
 import { admin } from "@/lib/supabase/admin";
 import CopyBox from "@/components/CopyBox";
-import { saveSettings, testTelegram, testCapi, testMeta, rotateToken } from "./actions";
+import { saveSettings, testTelegram, testCapi, testMeta, rotateToken, saveCosts } from "./actions";
 
 const META_PARAMS = "utm_source=FB&utm_campaign={{campaign.name}}|{{campaign.id}}&utm_medium={{adset.name}}|{{adset.id}}&utm_content={{ad.name}}|{{ad.id}}&utm_term={{placement}}";
 
@@ -23,6 +23,7 @@ export default async function Config({ searchParams }: { searchParams: Promise<R
   if (!ctx.canEdit) redirect("/dashboard");
   const ws = ctx.ws;
   const app = process.env.NEXT_PUBLIC_APP_URL || "";
+  const { data: prods } = await admin().from("product_costs").select("*").eq("workspace_id", ws.id).order("product_name");
   const { data: logs } = await admin().from("webhook_logs").select("*").eq("workspace_id", ws.id).order("created_at", { ascending: false }).limit(15);
   const msg = sp.m ? decodeURIComponent(sp.m) : null;
   const H = <input type="hidden" name="ws" value={ws.id} />;
@@ -62,7 +63,7 @@ export default async function Config({ searchParams }: { searchParams: Promise<R
           <h2 style={{ marginTop: 8 }}>4. Meta Ads (gasto e ROAS)</h2>
           <label>IDs das contas de anúncio<input className="input" name="meta_ad_account_ids" defaultValue={ws.meta_ad_account_ids || ""} placeholder="act_123456789, act_987654321" /></label>
           <Secret name="meta_access_token" label="Token de acesso" set={!!ws.meta_access_token}
-            hint="Business Manager → Usuários do sistema → Gerar token com permissão ads_read (sem expiração)." />
+            hint="Business Manager → Usuários do sistema → Gerar token com as permissões ads_read e ads_management (sem expiração). O ads_management é o que permite pausar, mudar orçamento e duplicar pelo UtmCai." />
 
           <h2 style={{ marginTop: 8 }}>5. Pixel / API de Conversões</h2>
           <div className="row2">
@@ -89,6 +90,20 @@ export default async function Config({ searchParams }: { searchParams: Promise<R
           <textarea className="input" name="generic_mapping" defaultValue={ws.generic_mapping ? JSON.stringify(ws.generic_mapping, null, 2) : ""} />
 
           <div><button className="btn">Guardar</button></div>
+        </form>
+
+        <form action={saveCosts} className="card form">
+          {H}
+          <h2>9. Impostos e custos (para o lucro real)</h2>
+          <div className="row3">
+            <label>Imposto sobre a venda (%)<input className="input" name="tax_percent" defaultValue={ws.tax_percent ?? 0} inputMode="decimal" /></label>
+            <label>Taxa do checkout (%)<input className="input" name="gateway_fee_percent" defaultValue={ws.gateway_fee_percent ?? 0} inputMode="decimal" /></label>
+            <label>Custo fixo por venda<input className="input" name="fixed_cost_per_sale" defaultValue={ws.fixed_cost_per_sale ?? 0} inputMode="decimal" /></label>
+          </div>
+          <label>Custo por produto (um por linha, no formato <code>Nome do produto = custo</code>; o nome tem de ser igual ao que o checkout envia)
+            <textarea className="input" name="product_costs" defaultValue={(prods || []).map((p: any) => `${p.product_name} = ${p.cost}`).join("\n")} placeholder={"Curso Principal = 0\nOrder bump PDF = 0\nKit físico = 35,90"} />
+          </label>
+          <div><button className="btn">Guardar custos</button></div>
         </form>
 
         <div className="card form">
