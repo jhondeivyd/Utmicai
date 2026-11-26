@@ -1,3 +1,4 @@
+import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
 import { admin } from "@/lib/supabase/admin";
 import { resolveRange } from "@/lib/dates";
@@ -10,7 +11,7 @@ const maskEmail = (e?: string) => (e ? e.replace(/^(.{2}).*(@.*)$/, "$1•••
 export default async function Vendas({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const sp = await searchParams;
   const ctx = await getContext();
-  if (!ctx.ws) return null;
+  if (!ctx.ws) return <NoWs />;
   const ws = ctx.ws;
   const r = resolveRange(sp, ws.timezone);
   let q = admin().from("sales").select("*").eq("workspace_id", ws.id)

@@ -1,6 +1,15 @@
 import { admin } from "./supabase/admin";
 import { NormalizedSale, Utms, findClickId, findUtms, utmToAd } from "./normalize";
-import { saleMessage, sendCapiPurchase, sendTelegram } from "./integrations";
+import { saleMessage, sendCapiPurchase, sendTelegram, notifyOf } from "./integrations";
+import { costsFrom, totals } from "./metrics";
+
+// valor líquido da venda (depois de imposto e taxas), para a notificação
+async function netOf(ws: any, sale: any) {
+  try {
+    const { data: fees } = await admin().from("fees").select("*").eq("workspace_id", ws.id);
+    return totals([{ ...sale, status: "approved" }], [], costsFrom(ws, [], fees)).net;
+  } catch { return Number(sale.amount) || 0; }
+}
 
 export async function getWorkspaceByToken(token: string) {
   const db = admin();
@@ -66,10 +75,12 @@ export async function ingestSale(ws: any, provider: string, sale: NormalizedSale
       await db.from("sales").update(err ? { capi_error: err } : { capi_sent_at: new Date().toISOString(), capi_error: null })
         .eq("id", saved.id);
     }
-    if (!saved.notified_at && ws.telegram_bot_token && ws.telegram_chat_id) {
-      const err = await sendTelegram(ws, saleMessage(ws, saved));
+    if (!saved.notified_at && ws.telegram_bot_token && ws.telegram_chat_id && notifyOf(ws).approved) {
+      const err = await sendTelegram(ws, saleMessage(ws, saved, await netOf(ws, saved)));
       if (!err) await db.from("sales").update({ notified_at: new Date().toISOString() }).eq("id", saved.id);
     }
+  } else if (saved.status === "pending" && !existing && ws.telegram_bot_token && ws.telegram_chat_id && notifyOf(ws).pending) {
+    await sendTelegram(ws, saleMessage(ws, saved, await netOf(ws, saved)));
   }
   return { id: saved.id, status: saved.status, tracked: !!(saved.utm_source || saved.utm_campaign), click: !!click };
 }

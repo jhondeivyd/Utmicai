@@ -1,3 +1,4 @@
+import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
 import { resolveRange } from "@/lib/dates";
 import { loadPeriod } from "@/lib/data";
@@ -16,7 +17,7 @@ const ICON: Record<Level, string> = { account: "admin", campaign: "campaigns", a
 export default async function Meta({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const sp = await searchParams;
   const ctx = await getContext();
-  if (!ctx.ws) return null;
+  if (!ctx.ws) return <NoWs />;
   const ws = ctx.ws;
   const r = resolveRange(sp, ws.timezone);
   const level = (["account", "campaign", "adset", "ad"].includes(sp.l) ? sp.l : "campaign") as Level;

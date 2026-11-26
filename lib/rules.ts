@@ -7,7 +7,8 @@ import { addDays, startOfDayIso, todayIn } from "./dates";
 
 export const RULE_METRICS = ["spend", "sales", "revenue", "profit", "roas", "roi", "cpa", "ctr", "cpm", "cpc", "ic", "cost_ic", "lpv", "link_clicks", "pending"] as const;
 export const OPS: Record<string, string> = { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=" };
-export const WINDOWS: Record<string, string> = { today: "Hoje", yesterday: "Ontem", last_3d: "Últimos 3 dias", last_7d: "Últimos 7 dias" };
+export const WINDOWS: Record<string, string> = { today: "Hoje", yesterday: "Ontem", last_3d: "Últimos 3 dias", last_7d: "Últimos 7 dias", last_14d: "Últimos 14 dias", last_30d: "Últimos 30 dias" };
+export const FREQS: Record<string, string> = { "15": "A cada 15 minutos", "30": "A cada 30 minutos", "60": "A cada 1 hora", "120": "A cada 2 horas", "240": "A cada 4 horas", "360": "A cada 6 horas", "720": "A cada 12 horas", "1440": "Uma vez por dia" };
 export const ACTIONS: Record<string, string> = {
   pause: "Pausar", activate: "Ativar", budget_up: "Aumentar orçamento (%)", budget_down: "Diminuir orçamento (%)",
   budget_set: "Definir orçamento diário", notify: "Só avisar no Telegram"
@@ -20,6 +21,8 @@ export function windowRange(w: string, tz: string) {
   if (w === "yesterday") from = to = addDays(t, -1);
   else if (w === "last_3d") from = addDays(t, -2);
   else if (w === "last_7d") from = addDays(t, -6);
+  else if (w === "last_14d") from = addDays(t, -13);
+  else if (w === "last_30d") from = addDays(t, -29);
   return { from, to, startIso: startOfDayIso(from, tz), endIso: startOfDayIso(addDays(to, 1), tz) };
 }
 
@@ -59,23 +62,49 @@ export async function runRulesForWorkspace(ws: any, opts: { onlyRuleId?: string;
   }
   const { data: ents } = await db.from("ad_entities").select("*").eq("workspace_id", ws.id);
   const { data: prods } = await db.from("product_costs").select("*").eq("workspace_id", ws.id);
-  const costs = costsFrom(ws, prods);
+  const { data: feeRows } = await db.from("fees").select("*").eq("workspace_id", ws.id);
+  const costs = costsFrom(ws, prods, feeRows);
   const results: any[] = [];
 
+  const nowH = Number(new Intl.DateTimeFormat("en-US", { timeZone: ws.timezone, hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+  const dayStart = windowRange("today", ws.timezone).startIso;
+
   for (const rule of rules) {
+    // frequência e janela de horário (não se aplicam ao botão "testar")
+    if (!opts.onlyRuleId) {
+      const freq = Number(rule.frequency_min) || 15;
+      if (rule.last_run_at && Date.now() - new Date(rule.last_run_at).getTime() < (freq - 2) * 60e3) continue;
+      if (rule.hour_from != null && rule.hour_to != null) {
+        const inside = rule.hour_from <= rule.hour_to ? nowH >= rule.hour_from && nowH <= rule.hour_to : nowH >= rule.hour_from || nowH <= rule.hour_to;
+        if (!inside) continue;
+      }
+    }
+    let budgetLeft = Infinity;
+    if (rule.daily_limit) {
+      const { count } = await db.from("rule_logs").select("id", { count: "exact", head: true }).eq("rule_id", rule.id).eq("ok", true).eq("dry_run", false).gte("created_at", dayStart);
+      budgetLeft = Math.max(0, rule.daily_limit - (count || 0));
+      if (!budgetLeft && !opts.forceDry && !rule.dry_run) { await db.from("rules").update({ last_run_at: new Date().toISOString() }).eq("id", rule.id); continue; }
+    }
     const r = windowRange(rule.time_window, ws.timezone);
     const [{ data: sales }, { data: spend }] = await Promise.all([
       db.from("sales").select("status,amount,product_name,customer_email,campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name")
         .eq("workspace_id", ws.id).gte("created_at", r.startIso).lt("created_at", r.endIso).limit(20000),
       db.from("ad_spend").select("*").eq("workspace_id", ws.id).gte("date", r.from).lte("date", r.to).limit(50000)
     ]);
-    const rows = aggregate(rule.level, sales || [], spend || [], ents || [], costs, { includeIdle: true })
-      .filter((x) => x.id && (ents || []).some((e: any) => e.id === x.id));
+    const prodSales = rule.product ? (sales || []).filter((s: any) => (s.product_name || "") === rule.product) : sales || [];
+    const names = String(rule.name_filter || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+    const rows = aggregate(rule.level, prodSales, spend || [], ents || [], costs, { includeIdle: true })
+      .filter((x) => x.id && (ents || []).some((e: any) => e.id === x.id))
+      .filter((x) => !names.length || names.some((n) => x.name.toLowerCase().includes(n)));
+    // condições medidas na campanha (para regras de conjunto/anúncio)
+    const campRows = rule.cond_level === "campaign" && rule.level !== "campaign" ? new Map(aggregate("campaign", prodSales, spend || [], ents || [], costs).map((c) => [c.id, c])) : null;
+    const metricsOf = (x: any) => campRows ? campRows.get((ents || []).find((e: any) => e.id === x.id)?.campaign_id) || x : x;
 
     const wantStatus = rule.action === "activate" ? "PAUSED" : "ACTIVE";
     const conds = (rule.conditions || []) as { metric: string; op: string; value: number }[];
     const dry = rule.dry_run || opts.forceDry;
-    const hits = rows.filter((x) => x.status === wantStatus && conds.length && conds.every((c) => test((x as any)[c.metric] ?? 0, c.op, condValue(c.metric, Number(c.value)))));
+    const statusOk = (x: any) => rule.action === "notify" && rule.apply_to === "all" ? true : x.status === wantStatus;
+    const hits = rows.filter((x) => statusOk(x) && conds.length && conds.every((c) => test((metricsOf(x) as any)[c.metric] ?? 0, c.op, condValue(c.metric, Number(c.value)))));
 
     // cooldown: não repetir a ação na mesma entidade dentro de N horas
     const since = new Date(Date.now() - (rule.cooldown_hours || 0) * 3600e3).toISOString();
@@ -84,6 +113,8 @@ export async function runRulesForWorkspace(ws: any, opts: { onlyRuleId?: string;
 
     for (const x of hits) {
       if (!dry && cooled.has(x.id)) continue;
+      if (!dry && budgetLeft <= 0) break;
+      if (!dry) budgetLeft--;
       let detail = describeRule(rule, ws.currency);
       let ok = true;
       try {

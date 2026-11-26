@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { assertCanEdit } from "@/lib/session";
 import { admin } from "@/lib/supabase/admin";
-import { runRulesForWorkspace, RULE_METRICS, ACTIONS, WINDOWS, LEVELS, OPS } from "@/lib/rules";
+import { runRulesForWorkspace, RULE_METRICS, ACTIONS, WINDOWS, LEVELS, OPS, FREQS } from "@/lib/rules";
 
 const back = (m: string, ok = true) => redirect(`/regras?m=${encodeURIComponent((ok ? "ok:" : "e:") + m)}`);
 
@@ -23,8 +23,18 @@ export async function saveRule(fd: FormData) {
   const row: any = {
     workspace_id: ctx.ws.id, name: String(fd.get("name") || "").trim() || "Regra sem nome", level, time_window: win, conditions, action,
     action_value: action.startsWith("budget") ? Number(av) : null, cooldown_hours: Math.max(0, Number(fd.get("cooldown_hours")) || 0),
-    dry_run: fd.get("dry_run") === "on", notify: fd.get("notify") === "on", active: true
+    dry_run: fd.get("dry_run") === "on", notify: fd.get("notify") === "on", active: true,
+    name_filter: String(fd.get("name_filter") || "").trim() || null,
+    product: String(fd.get("product") || "").trim() || null,
+    apply_to: fd.get("apply_to") === "all" && action === "notify" ? "all" : "active",
+    cond_level: fd.get("cond_level") === "campaign" ? "campaign" : "object",
+    frequency_min: FREQS[String(fd.get("frequency_min"))] ? Number(fd.get("frequency_min")) : 15,
+    hour_from: fd.get("hour_from") === "" || fd.get("hour_from") == null ? null : Math.min(23, Math.max(0, Number(fd.get("hour_from")))),
+    hour_to: fd.get("hour_to") === "" || fd.get("hour_to") == null ? null : Math.min(23, Math.max(0, Number(fd.get("hour_to")))),
+    daily_limit: Number(fd.get("daily_limit")) > 0 ? Math.round(Number(fd.get("daily_limit"))) : null
   };
+  if ((row.hour_from == null) !== (row.hour_to == null)) { row.hour_from = null; row.hour_to = null; }
+  if (!fd.has("cooldown_hours")) row.cooldown_hours = Math.max(1, Math.round(row.frequency_min / 60));
   const id = String(fd.get("id") || "");
   const db = admin();
   const { error } = id ? await db.from("rules").update(row).eq("id", id).eq("workspace_id", ctx.ws.id) : await db.from("rules").insert(row);

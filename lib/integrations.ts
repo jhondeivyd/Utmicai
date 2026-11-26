@@ -79,15 +79,19 @@ export function money(v: number, currency = "BRL") {
 
 const esc = (s: string) => s.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]!));
 
-export function saleMessage(ws: any, sale: any) {
+export const NOTIFY_DEFAULT = { pending: false, approved: true, value: "comissao", product: false, campaign: false, dashname: true, hours: [12, 23], style: "detalhado" };
+export const notifyOf = (ws: any) => ({ ...NOTIFY_DEFAULT, ...(ws?.notify || {}) });
+
+// Mensagem de venda (aprovada ou pendente), conforme as opções em Notificações
+export function saleMessage(ws: any, sale: any, net?: number) {
+  const n = notifyOf(ws);
+  const pend = sale.status === "pending";
+  const val = n.value === "comissao" && typeof net === "number" ? net : Number(sale.amount);
   const lines = [
-    `💰 <b>Venda aprovada!</b> — ${esc(ws.name)}`,
-    `Valor: <b>${money(Number(sale.amount), sale.currency || ws.currency)}</b>`,
-    sale.product_name ? `Produto: ${esc(sale.product_name)}` : null,
-    `Origem: ${esc(sale.utm_source || "sem rastreio")}`,
-    sale.campaign_name ? `Campanha: ${esc(sale.campaign_name)}` : null,
-    sale.ad_name ? `Anúncio: ${esc(sale.ad_name)}` : null,
-    sale.placement ? `Posicionamento: ${esc(sale.placement)}` : null
+    `${pend ? "⏳ <b>Venda pendente</b>" : "💰 <b>Venda aprovada!</b>"}${n.dashname ? " | " + esc(ws.name) : ""}`,
+    `${n.value === "comissao" ? "Comissão" : "Valor"}: <b>${money(val, sale.currency || ws.currency)}</b>`,
+    n.product && sale.product_name ? `Produto: ${esc(sale.product_name)}` : null,
+    n.campaign ? `Campanha: ${esc(String(sale.campaign_name || sale.utm_campaign || "sem rastreio").split("|")[0])}` : null
   ];
   return lines.filter(Boolean).join("\n");
 }

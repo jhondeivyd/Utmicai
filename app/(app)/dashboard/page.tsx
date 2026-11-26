@@ -1,6 +1,7 @@
+import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
 import { resolveRange, addDays } from "@/lib/dates";
-import { loadPeriod } from "@/lib/data";
+import { loadPeriod, loadExtraCosts } from "@/lib/data";
 import { totals, aggregate, byDay, byHour, groupCount, placementLabel, fmt } from "@/lib/metrics";
 import { readFilters, applyFilters, filterOptions, METHOD_LABEL } from "@/lib/filters";
 import FilterBar from "@/components/FilterBar";
@@ -22,7 +23,7 @@ const pct = (a: number, b: number) => (b ? a / b : 0);
 export default async function Resumo({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const sp = await searchParams;
   const ctx = await getContext();
-  if (!ctx.ws) return <div className="card">Crie a primeira workspace em <a className="pos" href="/admin">Admin</a>.</div>;
+  if (!ctx.ws) return <NoWs />;
   const ws = ctx.ws, cur = ws.currency;
   const r = resolveRange(sp, ws.timezone);
   const f = readFilters(sp);
@@ -31,7 +32,10 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<R
   const { sales, spend } = applyFilters(f, all.sales, all.spend, all.entities);
   const { entities, costs } = all;
 
-  const t = totals(sales, spend, costs);
+  const t0 = totals(sales, spend, costs);
+  const extra = f.product || f.source || f.campaign ? 0 : await loadExtraCosts(ws, r, all.prods);
+  const t = { ...t0, profit: t0.profit - extra, roi: t0.spend ? (t0.profit - extra) / t0.spend : 0, margin: t0.revenue ? (t0.profit - extra) / t0.revenue : 0 };
+  const gross = ws.view_type === "total";
   const m = (v: number, k: "money" | "int" | "x" | "pct") => fmt(v, k, cur);
   const tone = (v: number) => (v > 0 ? "pos" : v < 0 ? "neg" : "");
   const approved = sales.filter((s) => s.status === "approved");
@@ -86,10 +90,12 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<R
       />
 
       <div className="tile-grid">
-        <Tile hero label="Faturamento líquido" value={m(t.net, "money")} sub={`Bruto ${m(t.revenue, "money")}`} tip="Faturamento das vendas aprovadas menos impostos e taxas do checkout" />
+        {gross
+          ? <Tile hero label="Faturamento total" value={m(t.revenue, "money")} sub={`Líquido ${m(t.net, "money")}`} tip="Valor bruto pago pelos clientes nas vendas aprovadas" />
+          : <Tile hero label="Faturamento líquido" value={m(t.net, "money")} sub={`Bruto ${m(t.revenue, "money")}`} tip="Faturamento das vendas aprovadas menos impostos e taxas" />}
         <Tile label="Gastos com anúncios" value={m(t.spend, "money")} />
         <Tile label="ROAS" value={t.spend ? m(t.roas, "x") : "0,00"} tone={t.spend ? (t.roas >= 1 ? "pos" : "neg") : ""} tip="Faturamento ÷ gasto" />
-        <Tile label="Lucro" value={m(t.profit, "money")} tone={tone(t.profit)} tip="Faturamento líquido − gasto − custos de produto − custos fixos" />
+        <Tile label="Lucro" value={m(t.profit, "money")} tone={tone(t.profit)} tip="Faturamento líquido − gasto − custos de produto − despesas adicionais" />
 
         <div className="card span2 row2">
           <h2>Vendas por produto <span className="info" title="Vendas aprovadas no período">ⓘ</span></h2>
@@ -101,7 +107,7 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<R
         <Tile label="Taxas" value={m(t.taxes + t.fees, "money")} sub="impostos + checkout" />
 
         <Tile label="Margem" value={t.revenue ? m(t.margin, "pct") : "N/A"} tone={tone(t.margin)} tip="Lucro ÷ faturamento" />
-        <Tile label="Custos de produto" value={m(t.product_costs + t.fixed_costs, "money")} />
+        <Tile label="Despesas adicionais" value={m(extra + t.product_costs + t.fixed_costs, "money")} sub={extra ? `custos de produto ${m(t.product_costs + t.fixed_costs, "money")}` : "custos de produto e despesas"} tip="Custos de produto + despesas registadas em Despesas (as mensais são divididas pelos dias)" />
         <Tile label="Reembolso" value={m(pct(t.refunds, closed), "pct")} tone={t.refunds ? "neg" : ""} tip="Vendas reembolsadas ÷ vendas concluídas" />
         <Tile label="Chargeback" value={m(pct(t.chargebacks, closed), "pct")} tone={t.chargebacks ? "neg" : ""} />
 

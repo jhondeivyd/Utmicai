@@ -1,6 +1,7 @@
 // Motor de métricas: junta vendas (UtmCai) com gasto (Meta) e custos da operação.
 
-export type Costs = { tax: number; fee: number; fixed: number; products: Record<string, number> };
+export type FeeRule = { percent: number; fixed: number; method: string };
+export type Costs = { tax: number; fee: number; fixed: number; products: Record<string, number>; feeList: FeeRule[]; adsTax: number; gross: boolean };
 export type Level = "account" | "campaign" | "adset" | "ad";
 
 export type M = {
@@ -19,14 +20,19 @@ export const emptyM = (): M => ({
   taxes: 0, fees: 0, product_costs: 0, fixed_costs: 0, customers: new Set()
 });
 
-export function costsFrom(ws: any, productRows: any[] | null): Costs {
+export function costsFrom(ws: any, productRows: any[] | null, feeRows: any[] | null = null): Costs {
   const products: Record<string, number> = {};
-  for (const p of productRows || []) products[String(p.product_name).toLowerCase().trim()] = Number(p.cost) || 0;
-  return { tax: Number(ws.tax_percent) || 0, fee: Number(ws.gateway_fee_percent) || 0, fixed: Number(ws.fixed_cost_per_sale) || 0, products };
+  for (const p of productRows || []) if ((p.kind || "venda") === "venda") products[String(p.product_name).toLowerCase().trim()] = Number(p.cost) || 0;
+  const feeList = (feeRows || []).map((f: any) => ({ percent: Number(f.percent) || 0, fixed: Number(f.fixed) || 0, method: f.payment_method || "todas" }));
+  return {
+    tax: Number(ws.tax_percent) || 0, fee: feeList.length ? 0 : Number(ws.gateway_fee_percent) || 0, fixed: Number(ws.fixed_cost_per_sale) || 0,
+    products, feeList, adsTax: Number(ws.ads_tax_percent) || 0, gross: ws.view_type === "total"
+  };
 }
 
-export function addSpend(m: M, s: any) {
+export function addSpend(m: M, s: any, c?: Costs) {
   m.spend += Number(s.spend) || 0;
+  if (c?.adsTax) m.taxes += ((Number(s.spend) || 0) * c.adsTax) / 100;
   m.impressions += Number(s.impressions) || 0;
   m.clicks += Number(s.clicks) || 0;
   m.link_clicks += Number(s.link_clicks) || 0;
@@ -41,6 +47,7 @@ export function addSale(m: M, s: any, c: Costs) {
     m.sales++; m.revenue += amt;
     m.taxes += (amt * c.tax) / 100;
     m.fees += (amt * c.fee) / 100;
+    for (const f of c.feeList || []) if (f.method === "todas" || f.method === (s.payment_method || "card")) m.fees += (amt * f.percent) / 100 + f.fixed;
     m.fixed_costs += c.fixed;
     m.product_costs += c.products[String(s.product_name || "").toLowerCase().trim()] || 0;
     if (s.customer_email) m.customers.add(s.customer_email);
@@ -71,7 +78,7 @@ export function derive(m: M): Derived {
 
 export function totals(sales: any[], spend: any[], c: Costs) {
   const m = emptyM();
-  for (const s of spend) addSpend(m, s);
+  for (const s of spend) addSpend(m, s, c);
   for (const s of sales) addSale(m, s, c);
   return derive(m);
 }
@@ -96,7 +103,7 @@ export function aggregate(level: Level, sales: any[], spend: any[], entities: an
   };
   const parentOk = (x: any) => !opts.parent || x.campaign_id === opts.parent || x.adset_id === opts.parent;
 
-  for (const s of spend) if (parentOk(s)) addSpend(get(s[`${level}_id`], s[`${level}_name`]).m, s);
+  for (const s of spend) if (parentOk(s)) addSpend(get(s[`${level}_id`], s[`${level}_name`]).m, s, c);
   for (const s of sales) if (parentOk(s)) addSale(get(s[`${level}_id`], s[`${level}_name`]).m, s, c);
   if (opts.includeIdle) for (const e of entities) if (e.level === level && parentOk(e)) get(e.id, e.name);
 
@@ -129,7 +136,7 @@ export function aggregate(level: Level, sales: any[], spend: any[], entities: an
 }
 
 // ---------- séries ----------
-function partsIn(tz: string, iso: string) {
+export function partsIn(tz: string, iso: string) {
   const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" })
     .formatToParts(new Date(iso));
   const g = (t: string) => p.find((x) => x.type === t)!.value;
