@@ -1,6 +1,6 @@
 import { admin } from "./supabase/admin";
 import { NormalizedSale, Utms, findClickId, findUtms, utmToAd } from "./normalize";
-import { saleMessage, sendCapiPurchase, sendTelegram, fetchMetaSpend } from "./integrations";
+import { saleMessage, sendCapiPurchase, sendTelegram } from "./integrations";
 
 export async function getWorkspaceByToken(token: string) {
   const db = admin();
@@ -82,29 +82,5 @@ export async function updateByPaymentRef(ws: any, provider: string, ref: string,
   return data?.length || 0;
 }
 
-// ---------- sincronização do gasto Meta ----------
-function ymd(d: Date) { return d.toISOString().slice(0, 10); }
-
-export async function syncWorkspaceSpend(ws: any, days = 3) {
-  if (!ws.meta_access_token || !ws.meta_ad_account_ids) return { ok: false, msg: "Meta não configurado" };
-  const until = new Date();
-  const since = new Date(Date.now() - (days - 1) * 864e5);
-  const db = admin();
-  let total = 0;
-  const errors: string[] = [];
-  for (const acc of String(ws.meta_ad_account_ids).split(/[,\s]+/).filter(Boolean)) {
-    try {
-      const rows = await fetchMetaSpend(ws.meta_access_token, acc, ymd(since), ymd(until));
-      for (let i = 0; i < rows.length; i += 500) {
-        const chunk = rows.slice(i, i + 500).map((r) => ({ ...r, workspace_id: ws.id, updated_at: new Date().toISOString() }));
-        const { error } = await db.from("ad_spend").upsert(chunk, { onConflict: "workspace_id,date,ad_id" });
-        if (error) throw new Error(error.message);
-      }
-      total += rows.length;
-    } catch (e: any) {
-      errors.push(`${acc}: ${e?.message || e}`);
-    }
-  }
-  await db.from("workspaces").update({ meta_last_sync_at: new Date().toISOString() }).eq("id", ws.id);
-  return { ok: errors.length === 0, msg: errors.length ? errors.join(" · ") : `${total} linhas sincronizadas` };
-}
+// ---------- sincronização do Meta (gasto + campanhas) ----------
+export { syncWorkspace as syncWorkspaceSpend } from "./meta";
