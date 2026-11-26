@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </header>
         <main className="main">
-          {!ctx.ws && !ctx.isAdmin ? <div className="card">Ainda não tem nenhum dashboard. Peça acesso ao administrador.</div> : children}
+          {children}
         </main>
       </div>
     </div>

@@ -3,7 +3,9 @@ import { admin } from "@/lib/supabase/admin";
 import { TIMEZONES, CURRENCIES, VIEW_TYPES, tzLabel, curLabel, viewLabel } from "@/lib/options";
 import Icon from "@/components/Icon";
 import ConfirmButton from "@/components/ConfirmButton";
-import { saveDashboard, deleteDashboard, addCollaborator, removeCollaborator } from "./actions";
+import { saveDashboard, deleteDashboard, addCollaborator, removeCollaborator, setSignup } from "./actions";
+import { appUrl } from "@/lib/appurl";
+import CopyBox from "@/components/CopyBox";
 
 const YN = ({ name, value }: { name: string; value: boolean }) => (
   <select className="input" name={name} defaultValue={value ? "1" : "0"}><option value="1">Habilitado</option><option value="0">Não habilitado</option></select>
@@ -22,8 +24,20 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
   const { data: profs } = uids.length ? await db.from("profiles").select("user_id,email").in("user_id", uids) : { data: [] as any[] };
   const email = (u: string) => (profs || []).find((p: any) => p.user_id === u)?.email || u.slice(0, 8);
   const manageable = ctx.workspaces.filter((w) => ctx.isAdmin || w.role === "owner");
-  const editing: any = sp.edit ? (wss || []).find((w: any) => w.id === sp.edit) : sp.new && ctx.isAdmin ? { timezone: "Europe/Lisbon", currency: "EUR", view_type: "normal", count_interest: true, meta_cache: true } : null;
+  const editing: any = sp.edit ? (wss || []).find((w: any) => w.id === sp.edit) : sp.new ? { timezone: "Europe/Lisbon", currency: "EUR", view_type: "normal", count_interest: true, meta_cache: true } : null;
   const msg = sp.m ? decodeURIComponent(sp.m) : null;
+  let signupOpen = false, users: any[] = [], wsCount: Record<string, number> = {};
+  if (ctx.isAdmin) {
+    const [{ data: st }, { data: us }, { data: allMem }] = await Promise.all([
+      db.from("app_settings").select("value").eq("key", "signup_open").maybeSingle(),
+      db.from("profiles").select("user_id,email,full_name,is_admin,created_at").order("created_at", { ascending: false }).limit(200),
+      db.from("members").select("user_id,role")
+    ]);
+    signupOpen = st?.value === "true";
+    users = us || [];
+    for (const m of allMem || []) if (m.role === "owner") wsCount[m.user_id] = (wsCount[m.user_id] || 0) + 1;
+  }
+  const app = await appUrl();
 
   return (
     <>
@@ -46,7 +60,7 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
                 <div className="dash-act">
                   <a className="btn btn-ghost btn-sm" href={`/api/ws?id=${w.id}&to=/dashboard`}>Abrir</a>
                   {manageable.some((m) => m.id === w.id) && <a className="icon-btn" title="Editar" href={`/avancado?edit=${w.id}`}><Icon name="edit" size={15} /></a>}
-                  {ctx.isAdmin && (
+                  {(ctx.isAdmin || ctx.workspaces.find((x) => x.id === w.id)?.role === "owner") && (
                     <form action={deleteDashboard}><input type="hidden" name="id" value={w.id} />
                       <ConfirmButton className="icon-btn" title="Apagar" msg={`Apagar o dashboard "${w.name}" e TODOS os dados dele (vendas, campanhas, regras)? Isto não se pode desfazer.`}><Icon name="trash" size={15} /></ConfirmButton>
                     </form>
@@ -56,7 +70,7 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
             ))}
             {!(wss || []).length && <p className="mut">Ainda não há dashboards.</p>}
           </div>
-          {ctx.isAdmin && <a className="btn" href="/avancado?new=1" style={{ marginTop: 14 }}>Novo Dashboard</a>}
+          <a className="btn" href="/avancado?new=1" style={{ marginTop: 14 }}>Novo Dashboard</a>
         </div>
 
         <div className="card">
@@ -86,6 +100,28 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
           </div>
         </div>
       </div>
+
+      {ctx.isAdmin && (
+        <div className="grid g-adv" style={{ marginTop: 14 }}>
+          <div className="card form">
+            <div className="card-h"><h2>Cadastro de contas</h2><span className={"badge " + (signupOpen ? "b-approved" : "b-pending")}>{signupOpen ? "Aberto" : "Fechado"}</span></div>
+            <p className="note">Com o cadastro aberto, qualquer pessoa com o link cria a sua conta grátis e pode ter até 3 dashboards próprios. Cada um só vê os seus dados.</p>
+            <CopyBox label="Link para enviar aos seus amigos" value={`${app}/cadastro`} />
+            <form action={setSignup}><input type="hidden" name="open" value={signupOpen ? "0" : "1"} />
+              <button className={signupOpen ? "btn btn-ghost" : "btn"}>{signupOpen ? "Fechar cadastro" : "Abrir cadastro"}</button></form>
+          </div>
+          <div className="card">
+            <h2>Contas ({users.length})</h2>
+            <div className="collab-list" style={{ marginTop: 6 }}>
+              {users.map((u: any) => (
+                <div key={u.user_id} className="collab">
+                  <div><b>{u.full_name || u.email}</b><div className="note">{u.email} · {u.is_admin ? "Administrador" : `${wsCount[u.user_id] || 0} dashboard(s)`} · desde {new Date(u.created_at).toLocaleDateString("pt-PT")}</div></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <>

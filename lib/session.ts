@@ -14,12 +14,14 @@ export async function getContext(wsParam?: string) {
   const isAdmin = !!profile?.is_admin;
 
   let workspaces: { id: string; name: string; role: string }[] = [];
+  // dashboards onde é membro (dono ou visualizador)
+  const { data: mine } = await db.from("members").select("role, workspaces(id,name)").eq("user_id", user.id);
+  workspaces = (mine || []).filter((m: any) => m.workspaces).map((m: any) => ({ id: m.workspaces.id, name: m.workspaces.name, role: m.role }));
   if (isAdmin) {
-    const { data } = await db.from("workspaces").select("id,name").order("name");
-    workspaces = (data || []).map((w) => ({ ...w, role: "owner" }));
-  } else {
-    const { data } = await db.from("members").select("role, workspaces(id,name)").eq("user_id", user.id);
-    workspaces = (data || []).filter((m: any) => m.workspaces).map((m: any) => ({ id: m.workspaces.id, name: m.workspaces.name, role: m.role }));
+    // o admin vê também os que ele criou (ou criados antes de existir "dono"); os das contas de teste ficam privados
+    const { data } = await db.from("workspaces").select("id,name,created_by").order("name");
+    for (const w of data || []) if ((!w.created_by || w.created_by === user.id) && !workspaces.some((x) => x.id === w.id)) workspaces.push({ id: w.id, name: w.name, role: "owner" });
+    workspaces.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   const store = await cookies();

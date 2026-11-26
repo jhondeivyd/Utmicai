@@ -34,17 +34,23 @@ export async function saveDashboard(fd: FormData) {
     if (error) return back(error.message, false);
     return back("Dashboard guardado");
   }
-  if (!ctx.isAdmin) return back("Só o administrador pode criar dashboards", false);
-  const { data, error } = await db.from("workspaces").insert(row).select("id").single();
+  // utilizadores normais (contas de teste) podem criar até 3 dashboards próprios
+  if (!ctx.isAdmin && ctx.workspaces.filter((w) => w.role === "owner").length >= 3) return back("Limite de 3 dashboards por conta durante o período de testes", false);
+  const { data, error } = await db.from("workspaces").insert({ ...row, created_by: ctx.user.id }).select("id").single();
   if (error) return back(error.message, false);
+  if (!ctx.isAdmin) {
+    const { error: e2 } = await db.from("members").insert({ workspace_id: data.id, user_id: ctx.user.id, role: "owner" });
+    if (e2) { await db.from("workspaces").delete().eq("id", data.id); return back(e2.message, false); }
+  }
   (await cookies()).set("ws", data.id, { path: "/", maxAge: 31536000, sameSite: "lax" });
   redirect(`/integracoes?m=${encodeURIComponent("ok:Dashboard criado — agora ligue o Meta Ads e os checkouts")}`);
 }
 
 export async function deleteDashboard(fd: FormData) {
   const ctx = await getContext();
-  if (!ctx.isAdmin) return back("Só o administrador pode apagar dashboards", false);
   const id = String(fd.get("id"));
+  const w = ctx.workspaces.find((x) => x.id === id);
+  if (!ctx.isAdmin && w?.role !== "owner") return back("Sem permissão para apagar este dashboard", false);
   const { error } = await admin().from("workspaces").delete().eq("id", id);
   if (error) return back(error.message, false);
   back("Dashboard apagado");
@@ -83,4 +89,13 @@ export async function removeCollaborator(fd: FormData) {
   try { await canManage(ws); } catch { return back("Sem permissão", false); }
   await admin().from("members").delete().eq("workspace_id", ws).eq("user_id", String(fd.get("user")));
   back("Acesso removido");
+}
+
+export async function setSignup(fd: FormData) {
+  const ctx = await getContext();
+  if (!ctx.isAdmin) return back("Sem permissão", false);
+  const open = fd.get("open") === "1";
+  const { error } = await admin().from("app_settings").upsert({ key: "signup_open", value: open ? "true" : "false" });
+  if (error) return back(error.message, false);
+  back(open ? "Cadastro aberto — quem tiver o link pode criar conta" : "Cadastro fechado");
 }

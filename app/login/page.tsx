@@ -9,7 +9,8 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         {sp.e && <div className="flash e">E-mail ou senha inválidos.</div>}
         <label>E-mail<input className="input" name="email" type="email" required autoComplete="email" /></label>
         <label>Senha<input className="input" name="password" type="password" required autoComplete="current-password" /></label>
-        <button className="btn">Entrar</button>
+        <button className="btn" style={{ justifyContent: "center" }}>Entrar</button>
+        <div className="note" style={{ textAlign: "center" }}>Ainda não tem conta? <a className="pos" href="/cadastro">Criar conta grátis</a></div>
       </form>
     </div>
   );
