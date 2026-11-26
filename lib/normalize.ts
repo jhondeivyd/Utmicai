@@ -14,6 +14,7 @@ export type NormalizedSale = {
   customer_phone?: string | null;
   customer_ip?: string | null;
   approved_at?: string | null;
+  payment_method?: string | null;
 };
 
 export type Utms = {
@@ -89,7 +90,7 @@ export function toNumber(v: any): number {
 // ---------- normalizador genérico (também usado para a KashPay) ----------
 export type GenericMapping = {
   external_id?: string; status?: string; amount?: string; currency?: string;
-  product_name?: string; customer_email?: string; customer_name?: string; customer_phone?: string; customer_ip?: string;
+  product_name?: string; customer_email?: string; customer_name?: string; customer_phone?: string; customer_ip?: string; payment_method?: string;
   amount_divisor?: number;               // 100 se o checkout manda o valor em centavos
   status_map?: Record<string, SaleStatus>; // ex: {"WAITING_PAYMENT":"pending"}
 };
@@ -110,8 +111,22 @@ const DEFAULTS: Record<string, string[]> = {
     "order.customer.name", "payer.name"],
   customer_phone: ["customer.phone", "buyer.phone", "client.phone", "phone", "customer_phone", "data.customer.phone",
     "customer.phone_number", "payer.phone"],
-  customer_ip: ["customer.ip", "ip", "client_ip", "data.customer.ip", "buyer.ip"]
+  customer_ip: ["customer.ip", "ip", "client_ip", "data.customer.ip", "buyer.ip"],
+  payment_method: ["payment_method", "paymentMethod", "payment_type", "paymentType", "method", "billing_type", "data.payment_method",
+    "data.paymentMethod", "payment.method", "payment.type", "transaction.payment_method", "order.payment_method", "data.payment.method"]
 };
+
+// cartão | pix | boleto | outro
+export function normalizeMethod(raw: any): string | null {
+  if (raw === undefined || raw === null || raw === "") return null;
+  const s = (typeof raw === "object" ? JSON.stringify(raw) : String(raw)).toLowerCase();
+  if (/pix/.test(s)) return "pix";
+  if (/boleto|bank_slip|billet|ticket/.test(s)) return "boleto";
+  if (/card|cart|credit|debit|visa|master|apple_pay|google_pay|link/.test(s)) return "card";
+  if (/mbway|mb_way|multibanco/.test(s)) return "mbway";
+  if (/paypal/.test(s)) return "paypal";
+  return "outro";
+}
 
 export function normalizeGeneric(payload: any, mapping?: GenericMapping | null): NormalizedSale | null {
   const m = mapping || {};
@@ -139,7 +154,8 @@ export function normalizeGeneric(payload: any, mapping?: GenericMapping | null):
     customer_email: str(pick("customer_email"))?.toLowerCase() ?? null,
     customer_name: str(pick("customer_name")),
     customer_phone: str(pick("customer_phone")),
-    customer_ip: str(pick("customer_ip"))
+    customer_ip: str(pick("customer_ip")),
+    payment_method: normalizeMethod(pick("payment_method"))
   };
 }
 

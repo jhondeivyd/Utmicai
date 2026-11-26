@@ -4,8 +4,8 @@ import Icon from "./Icon";
 export default function Nav({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: boolean }) {
   const p = usePathname();
   const items = [
-    ["/dashboard", "Dashboard", "dashboard"], ["/campanhas", "Campanhas", "campaigns"], ["/vendas", "Vendas", "sales"],
-    ...(canEdit ? [["/regras", "Regras automáticas", "rules"]] : [])
+    ["/dashboard", "Resumo", "dashboard"], ["/campanhas", "Meta", "campaigns"], ["/vendas", "Pedidos", "sales"],
+    ...(canEdit ? [["/regras", "Regras", "rules"]] : [])
   ];
   const bottom = [...(canEdit ? [["/config", "Configurações", "config"]] : []), ...(isAdmin ? [["/admin", "Admin", "admin"]] : [])];
   const L = ([href, label, icon]: string[]) => (

@@ -70,14 +70,14 @@ export async function fetchEntities(token: string, act: string, currency: string
   const money = (v: any) => (v === undefined || v === null || v === "" ? null : Number(v) / div);
   const [camps, sets, ads] = await Promise.all([
     graphAll(`${act}/campaigns`, { fields: "id,name,status,effective_status,daily_budget,lifetime_budget", limit: "500" }, token),
-    graphAll(`${act}/adsets`, { fields: "id,name,status,effective_status,daily_budget,lifetime_budget,campaign_id", limit: "500" }, token),
+    graphAll(`${act}/adsets`, { fields: "id,name,status,effective_status,daily_budget,lifetime_budget,bid_amount,campaign_id", limit: "500" }, token),
     graphAll(`${act}/ads`, { fields: "id,name,status,effective_status,adset_id,campaign_id", limit: "500" }, token)
   ]);
   const base = (x: any, level: string) => ({
     id: x.id, level, account_id: act, name: x.name, status: x.status, effective_status: x.effective_status,
     campaign_id: level === "campaign" ? x.id : x.campaign_id || null,
     adset_id: level === "ad" ? x.adset_id : level === "adset" ? x.id : null,
-    daily_budget: money(x.daily_budget), lifetime_budget: money(x.lifetime_budget)
+    daily_budget: money(x.daily_budget), lifetime_budget: money(x.lifetime_budget), bid_amount: money(x.bid_amount)
   });
   return [...camps.map((x) => base(x, "campaign")), ...sets.map((x) => base(x, "adset")), ...ads.map((x) => base(x, "ad"))];
 }

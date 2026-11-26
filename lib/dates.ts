@@ -25,6 +25,8 @@ export function resolveRange(sp: Record<string, string | undefined>, tz: string)
   else if (p === "7d") from = addDays(today, -6);
   else if (p === "30d") from = addDays(today, -29);
   else if (p === "month") from = today.slice(0, 8) + "01";
+  else if (p === "lastmonth") { to = addDays(today.slice(0, 8) + "01", -1); from = to.slice(0, 8) + "01"; }
+  else if (p === "90d") from = addDays(today, -89);
   else if (p === "custom" && sp.from && sp.to) { from = sp.from; to = sp.to; }
   return { p, from, to, startIso: startOfDayIso(from, tz), endIso: startOfDayIso(addDays(to, 1), tz) };
 }

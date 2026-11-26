@@ -2,74 +2,133 @@ import { getContext } from "@/lib/session";
 import { resolveRange, addDays } from "@/lib/dates";
 import { loadPeriod } from "@/lib/data";
 import { totals, aggregate, byDay, byHour, groupCount, placementLabel, fmt } from "@/lib/metrics";
-import RangeBar from "@/components/RangeBar";
-import KpiGrid from "@/components/KpiGrid";
+import { readFilters, applyFilters, filterOptions, METHOD_LABEL } from "@/lib/filters";
+import FilterBar from "@/components/FilterBar";
 import { DailyChart, HourChart, HBars, Funnel } from "@/components/Charts";
-import Icon from "@/components/Icon";
 import { syncNow } from "./actions";
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
+function Tile({ label, value, sub, tone = "", tip, hero, className = "" }: { label: string; value: string; sub?: string; tone?: string; tip?: string; hero?: boolean; className?: string }) {
+  return (
+    <div className={`card kpi ${hero ? "hero" : ""} ${className}`}>
+      <div className="l">{label}{tip && <span className="info" title={tip}>ⓘ</span>}</div>
+      <div className={"v " + tone}>{value}</div>
+      {sub && <div className="s">{sub}</div>}
+    </div>
+  );
+}
+
+const pct = (a: number, b: number) => (b ? a / b : 0);
+
+export default async function Resumo({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const sp = await searchParams;
   const ctx = await getContext();
   if (!ctx.ws) return <div className="card">Crie a primeira workspace em <a className="pos" href="/admin">Admin</a>.</div>;
   const ws = ctx.ws, cur = ws.currency;
   const r = resolveRange(sp, ws.timezone);
-  const { sales, spend, entities, costs } = await loadPeriod(ws, r);
+  const f = readFilters(sp);
+  const all = await loadPeriod(ws, r);
+  const opts = filterOptions(all.sales, all.entities, ws);
+  const { sales, spend } = applyFilters(f, all.sales, all.spend, all.entities);
+  const { entities, costs } = all;
 
   const t = totals(sales, spend, costs);
+  const m = (v: number, k: "money" | "int" | "x" | "pct") => fmt(v, k, cur);
+  const tone = (v: number) => (v > 0 ? "pos" : v < 0 ? "neg" : "");
   const approved = sales.filter((s) => s.status === "approved");
   const tracked = approved.filter((s) => s.utm_source || s.campaign_id || s.campaign_name).length;
-  const m = (v: number, k: "money" | "int" | "x" | "pct") => fmt(v, k, cur);
-  const tone = (v: number) => (v > 0 ? "pos" : v < 0 ? "neg" : "") as any;
+  const closed = t.sales + t.refunds + t.chargebacks;
 
-  const tiles = [
-    { key: "revenue", label: "Faturamento", value: m(t.revenue, "money"), sub: `${t.sales} vendas aprovadas`, hero: true },
-    { key: "spend", label: "Gasto Meta Ads", value: m(t.spend, "money"), sub: ws.meta_last_sync_at ? "sync " + new Date(ws.meta_last_sync_at).toLocaleString("pt-BR", { timeZone: ws.timezone, dateStyle: "short", timeStyle: "short" }) : "nunca sincronizado" },
-    { key: "profit", label: "Lucro", value: m(t.profit, "money"), tone: tone(t.profit), sub: `margem ${m(t.margin, "pct")}` },
-    { key: "roas", label: "ROAS", value: m(t.roas, "x"), tone: t.spend ? (t.roas >= 1 ? "pos" : "neg") : "" },
-    { key: "roi", label: "ROI", value: m(t.roi, "pct"), tone: tone(t.roi) },
-    { key: "sales", label: "Vendas", value: m(t.sales, "int"), sub: `${t.customers.size} clientes` },
-    { key: "cpa", label: "CPA", value: t.sales ? m(t.cpa, "money") : "—" },
-    { key: "ticket", label: "Ticket médio", value: t.sales ? m(t.ticket, "money") : "—" },
-    { key: "arpu", label: "ARPU", value: t.sales ? m(t.arpu, "money") : "—", sub: "receita por cliente" },
-    { key: "net", label: "Receita líquida", value: m(t.net, "money"), sub: "após impostos e taxas" },
-    { key: "pending", label: "Pendentes", value: m(t.pending, "int"), tone: "warn", sub: m(t.pending_amount, "money") },
-    { key: "refunds", label: "Reembolsos", value: m(t.refunds + t.chargebacks, "int"), tone: t.refunds + t.chargebacks ? "neg" : "", sub: m(t.refund_amount, "money") },
-    { key: "conv", label: "Conversão", value: m(t.conv, "pct"), sub: "vendas / vis. página" },
-    { key: "tracked", label: "Vendas rastreadas", value: approved.length ? `${Math.round((100 * tracked) / approved.length)}%` : "—", tone: approved.length && tracked / approved.length < 0.8 ? "warn" : "", sub: "com UTM" },
-    { key: "cpm", label: "CPM", value: m(t.cpm, "money") },
-    { key: "ctr", label: "CTR", value: m(t.ctr, "pct") },
-    { key: "cpc", label: "CPC", value: m(t.cpc, "money") },
-    { key: "ic", label: "Checkouts iniciados", value: m(t.ic, "int"), sub: t.ic ? `${m(t.cost_ic, "money")} por checkout` : "" },
-    { key: "taxes", label: "Impostos + taxas", value: m(t.taxes + t.fees, "money") },
-    { key: "product_costs", label: "Custos de produto", value: m(t.product_costs + t.fixed_costs, "money") },
-    { key: "meta_purchases", label: "Compras (Meta)", value: m(t.meta_purchases, "int"), sub: "o que o Pixel reportou" }
-  ];
+  // taxa de aprovação por forma de pagamento (aprovadas / aprovadas + recusadas)
+  const methods = ["card", "pix", "boleto"].concat([...new Set(sales.map((s) => s.payment_method).filter((x) => x && !["card", "pix", "boleto"].includes(x)))] as string[]);
+  const approval = methods.map((k) => {
+    const ofM = sales.filter((s) => s.payment_method === k);
+    const ok = ofM.filter((s) => ["approved", "refunded", "chargeback"].includes(s.status)).length;
+    const no = ofM.filter((s) => s.status === "canceled").length;
+    return { k, label: METHOD_LABEL[k] || k, rate: ok + no ? ok / (ok + no) : null, n: ofM.length };
+  }).filter((x) => ["card", "pix", "boleto"].includes(x.k) || x.n);
 
+  const byProduct = groupCount(sales, (s) => s.product_name || "Sem nome");
+  const byMethod = groupCount(sales, (s) => METHOD_LABEL[s.payment_method] || "Não informado");
+  const bySource = groupCount(sales, (s) => s.utm_source || "Sem rastreio");
   const days: string[] = [];
   for (let d = r.from; d <= r.to && days.length < 400; d = addDays(d, 1)) days.push(d);
   const daily = byDay(sales, spend, days, ws.timezone);
   const hours = byHour(sales, ws.timezone);
   const placements = groupCount(sales, (s) => placementLabel(s.placement));
-  const products = groupCount(sales, (s) => s.product_name || "Sem nome");
   const top = aggregate("campaign", sales, spend, entities, costs).filter((x) => x.spend || x.sales).sort((a, b) => b.profit - a.profit).slice(0, 6);
-  const sync = sp.sync ? decodeURIComponent(sp.sync) : null;
+  const syncMsg = sp.sync ? decodeURIComponent(sp.sync) : null;
+  const lastSync = ws.meta_last_sync_at ? Math.round((Date.now() - new Date(ws.meta_last_sync_at).getTime()) / 60000) : null;
+
+  const values: Record<string, string> = { p: r.p, from: r.from, to: r.to, ...(f as any) };
+  const products = opts.products.map((v) => ({ value: v, label: v }));
 
   return (
     <>
       <div className="top">
-        <div><h1>Dashboard</h1><div className="sub">{ws.name} · {r.from === r.to ? r.from.split("-").reverse().join("/") : `${r.from.split("-").reverse().join("/")} a ${r.to.split("-").reverse().join("/")}`}</div></div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <RangeBar base="/dashboard" p={r.p} from={r.from} to={r.to} />
+        <div><h1>Resumo</h1><div className="sub">{ws.name}</div></div>
+        <div className="inline">
+          <span className="updated">{lastSync === null ? "Meta nunca sincronizado" : lastSync < 2 ? "Atualizado agora mesmo" : `Atualizado há ${lastSync < 60 ? lastSync + " min" : Math.round(lastSync / 60) + " h"}`}</span>
           {ctx.canEdit && ws.meta_access_token && (
-            <form action={syncNow}><input type="hidden" name="ws" value={ws.id} /><input type="hidden" name="days" value="7" />
-              <button className="icon-btn" title="Sincronizar Meta agora"><Icon name="sync" size={16} /></button></form>
+            <form action={syncNow}><input type="hidden" name="ws" value={ws.id} /><input type="hidden" name="days" value="3" /><button className="btn btn-sm">Atualizar</button></form>
           )}
         </div>
       </div>
-      {sync && <div className={"flash" + (sync.startsWith("e:") ? " e" : "")}>{sync.slice(sync.indexOf(":") + 1)}</div>}
+      {syncMsg && <div className={"flash" + (syncMsg.startsWith("e:") ? " e" : "")}>{syncMsg.slice(syncMsg.indexOf(":") + 1)}</div>}
 
-      <KpiGrid tiles={tiles} />
+      <FilterBar base="/dashboard" values={values}
+        filters={[
+          { key: "account", label: "Conta de anúncio", options: opts.accounts.map((a) => ({ value: a, label: a.replace("act_", "") })) },
+          { key: "source", label: "Fonte de tráfego", options: [...opts.sources.map((s) => ({ value: s, label: s })), { value: "__none", label: "Sem rastreio" }] },
+          { key: "platform", label: "Plataforma", options: opts.platforms.map((p) => ({ value: p, label: p === "kashpay" ? "KashPay" : p === "stripe" ? "Stripe" : p })) },
+          { key: "product", label: "Produto", options: products }
+        ]}
+        more={[{ key: "campaign", label: "Campanha", options: entities.filter((e) => e.level === "campaign").map((e) => ({ value: e.id, label: e.name })) }]}
+      />
+
+      <div className="tile-grid">
+        <Tile hero label="Faturamento líquido" value={m(t.net, "money")} sub={`Bruto ${m(t.revenue, "money")}`} tip="Faturamento das vendas aprovadas menos impostos e taxas do checkout" />
+        <Tile label="Gastos com anúncios" value={m(t.spend, "money")} />
+        <Tile label="ROAS" value={t.spend ? m(t.roas, "x") : "0,00"} tone={t.spend ? (t.roas >= 1 ? "pos" : "neg") : ""} tip="Faturamento ÷ gasto" />
+        <Tile label="Lucro" value={m(t.profit, "money")} tone={tone(t.profit)} tip="Faturamento líquido − gasto − custos de produto − custos fixos" />
+
+        <div className="card span2 row2">
+          <h2>Vendas por produto <span className="info" title="Vendas aprovadas no período">ⓘ</span></h2>
+          {byProduct.length ? <HBars rows={byProduct} currency={cur} /> : <div className="empty">Nenhuma venda por aqui</div>}
+        </div>
+        <Tile label="Vendas pendentes" value={m(t.pending_amount, "money")} sub={`${t.pending} vendas`} tone="warn" />
+        <Tile label="ROI" value={t.spend ? m(t.roi, "pct") : "0,0%"} tone={tone(t.roi)} tip="Lucro ÷ gasto" />
+        <Tile label="Vendas reembolsadas" value={m(t.refund_amount, "money")} sub={`${t.refunds + t.chargebacks} vendas`} tone={t.refunds ? "neg" : ""} />
+        <Tile label="Taxas" value={m(t.taxes + t.fees, "money")} sub="impostos + checkout" />
+
+        <Tile label="Margem" value={t.revenue ? m(t.margin, "pct") : "N/A"} tone={tone(t.margin)} tip="Lucro ÷ faturamento" />
+        <Tile label="Custos de produto" value={m(t.product_costs + t.fixed_costs, "money")} />
+        <Tile label="Reembolso" value={m(pct(t.refunds, closed), "pct")} tone={t.refunds ? "neg" : ""} tip="Vendas reembolsadas ÷ vendas concluídas" />
+        <Tile label="Chargeback" value={m(pct(t.chargebacks, closed), "pct")} tone={t.chargebacks ? "neg" : ""} />
+
+        <div className="card">
+          <h2>Taxa de aprovação</h2>
+          {approval.map((a) => (
+            <div className="ring" key={a.k}><span>{a.label}</span><span className="mut">{a.n || ""}</span><b>{a.rate === null ? "N/A" : m(a.rate, "pct")}</b></div>
+          ))}
+        </div>
+        <Tile label="Vendas" value={m(t.sales, "int")} sub={`${t.customers.size} clientes`} />
+        <Tile label="CPA" value={t.sales ? m(t.cpa, "money") : "N/A"} />
+        <Tile label="Ticket médio" value={t.sales ? m(t.ticket, "money") : "N/A"} sub={t.sales ? `ARPU ${m(t.arpu, "money")}` : undefined} />
+
+        <div className="card span2">
+          <h2>Vendas por pagamento</h2>
+          {byMethod.length ? <HBars rows={byMethod} currency={cur} /> : <div className="empty">Nenhuma venda por aqui</div>}
+        </div>
+        <div className="card span2">
+          <h2>Vendas por fonte</h2>
+          {bySource.length ? <HBars rows={bySource} currency={cur} /> : <div className="empty">Nenhuma venda por aqui</div>}
+        </div>
+
+        <Tile label="Vendas rastreadas" value={approved.length ? `${Math.round((100 * tracked) / approved.length)}%` : "N/A"} tone={approved.length && tracked / approved.length < 0.8 ? "warn" : ""} sub="com UTM" />
+        <Tile label="Checkouts iniciados" value={m(t.ic, "int")} sub={t.ic ? `${m(t.cost_ic, "money")} por checkout` : undefined} />
+        <Tile label="CPM / CTR" value={m(t.cpm, "money")} sub={`CTR ${m(t.ctr, "pct")} · CPC ${m(t.cpc, "money")}`} />
+        <Tile label="Compras (Pixel)" value={m(t.meta_purchases, "int")} sub="o que o Meta reportou" />
+      </div>
 
       <div className="grid g2" style={{ marginTop: 14 }}>
         <div className="card">
@@ -80,43 +139,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <div className="card">
           <h2>Funil</h2>
           <Funnel steps={[
-            { label: "Impressões", value: t.impressions },
-            { label: "Cliques no link", value: t.link_clicks },
-            { label: "Visualizações da página", value: t.lpv },
-            { label: "Checkouts iniciados", value: t.ic },
-            { label: "Vendas", value: t.sales }
+            { label: "Impressões", value: t.impressions }, { label: "Cliques no link", value: t.link_clicks },
+            { label: "Visualizações da página", value: t.lpv }, { label: "Checkouts iniciados", value: t.ic }, { label: "Vendas", value: t.sales }
           ]} />
-          <div className="note" style={{ marginTop: 10 }}>Impressões, cliques, visualizações e checkouts vêm do Meta; vendas vêm dos seus checkouts.</div>
         </div>
       </div>
 
       <div className="grid g3" style={{ marginTop: 14 }}>
         <div className="card" style={{ gridColumn: "span 2" }}><h2>Vendas por hora</h2><HourChart data={hours} /></div>
-        <div className="card">
-          <h2>Para onde foi o dinheiro</h2>
-          <div className="hbar">
-            {[
-              ["Gasto em anúncios", t.spend], ["Impostos", t.taxes], ["Taxas do checkout", t.fees],
-              ["Custo de produto", t.product_costs + t.fixed_costs], ["Lucro", Math.max(0, t.profit)]
-            ].map(([l, v]: any) => (
-              <div className="r" key={l}><span>{l}</span><span className="t"><i style={{ width: `${t.revenue ? Math.min(100, (100 * v) / t.revenue) : 0}%`, background: l === "Lucro" ? "var(--pos)" : undefined }} /></span><span style={{ textAlign: "right" }}>{m(v, "money")}</span></div>
-            ))}
-          </div>
-          <div className="note" style={{ marginTop: 10 }}>Impostos, taxas e custos configuram-se em <a className="pos" href="/config">Configurações</a>.</div>
-        </div>
-      </div>
-
-      <div className="grid g3" style={{ marginTop: 14 }}>
         <div className="card"><h2>Vendas por posicionamento</h2><HBars rows={placements} currency={cur} /></div>
-        <div className="card"><h2>Vendas por produto</h2><HBars rows={products} currency={cur} /></div>
-        <div className="card">
-          <h2>Estado das vendas</h2>
-          <div className="hbar">
-            {[["Aprovadas", t.sales, "var(--pos)"], ["Pendentes", t.pending, "var(--warn)"], ["Reembolsadas", t.refunds, "var(--neg)"], ["Chargebacks", t.chargebacks, "var(--neg)"]].map(([l, v, c]: any) => (
-              <div className="r" key={l}><span>{l}</span><span className="t"><i style={{ width: `${sales.length ? (100 * v) / sales.length : 0}%`, background: c }} /></span><span style={{ textAlign: "right" }}>{v}</span></div>
-            ))}
-          </div>
-        </div>
       </div>
 
       <div className="card" style={{ marginTop: 14, padding: 0 }}>

@@ -90,7 +90,8 @@ export async function runRulesForWorkspace(ws: any, opts: { onlyRuleId?: string;
         if (!dry) detail = (await act(ws, rule, x, ents || [])) || detail;
         else detail = "[simulação] " + detail;
       } catch (e: any) { ok = false; detail = `Erro: ${e?.message || e}`; }
-      await db.from("rule_logs").insert({ workspace_id: ws.id, rule_id: rule.id, entity_id: x.id, entity_name: x.name, action: rule.action, detail, ok, dry_run: !!dry });
+      await db.from("rule_logs").insert({ workspace_id: ws.id, rule_id: rule.id, entity_id: x.id, entity_name: x.name, action: rule.action, detail, ok, dry_run: !!dry,
+        level: rule.level, snapshot: { spend: x.spend, profit: x.profit, sales: x.sales, roi: x.roi, revenue: x.revenue } });
       if (rule.notify && ok) {
         await sendTelegram(ws, `⚙️ <b>Regra:</b> ${esc(rule.name)}${dry ? " (simulação)" : ""}\n${esc(x.name)}\n${esc(detail)}\nGasto ${fmt(x.spend, "money", ws.currency)} · Vendas ${x.sales} · ROAS ${x.roas.toFixed(2)}`).catch(() => null);
       }

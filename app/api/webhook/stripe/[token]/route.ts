@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getWorkspaceByToken, ingestSale, logWebhook, updateByPaymentRef } from "@/lib/ingest";
-import { NormalizedSale, findClickId } from "@/lib/normalize";
+import { NormalizedSale, findClickId, normalizeMethod } from "@/lib/normalize";
 
 export const runtime = "nodejs";
 
@@ -49,7 +49,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
           product_name: o.metadata?.product_name || null,
           customer_email: o.customer_details?.email?.toLowerCase() || o.customer_email || null,
           customer_name: o.customer_details?.name || null,
-          customer_phone: o.customer_details?.phone || null
+          customer_phone: o.customer_details?.phone || null,
+          payment_method: normalizeMethod(o.payment_method_types?.[0] || "card")
         };
         const r = await ingestSale(ws, "stripe", sale, o);
         result = `ok: ${r.status}${r.tracked ? " · rastreada" : " · sem UTM"}`;
@@ -64,7 +65,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
           amount: amt(o.amount_received || o.amount || 0, o.currency),
           currency: (o.currency || "").toUpperCase(),
           product_name: o.metadata?.product_name || o.description || null,
-          customer_email: o.receipt_email?.toLowerCase() || null
+          customer_email: o.receipt_email?.toLowerCase() || null,
+          payment_method: normalizeMethod(o.payment_method_types?.[0] || "card")
         };
         const r = await ingestSale(ws, "stripe", sale, o);
         result = `ok: ${r.status}${r.tracked ? " · rastreada" : " · sem UTM"}`;

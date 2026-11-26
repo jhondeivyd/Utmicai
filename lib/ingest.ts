@@ -46,7 +46,7 @@ export async function ingestSale(ws: any, provider: string, sale: NormalizedSale
   const fields: any = {
     payment_ref: sale.payment_ref, amount: sale.amount || null, currency: sale.currency || ws.currency,
     product_name: sale.product_name, customer_email: sale.customer_email, customer_name: sale.customer_name,
-    customer_phone: sale.customer_phone, customer_ip: sale.customer_ip,
+    customer_phone: sale.customer_phone, customer_ip: sale.customer_ip, payment_method: sale.payment_method,
     click_id: click?.id || null, ...utms, ...(utms.utm_source || utms.utm_campaign ? utmToAd(utms) : {})
   };
   for (const [k, v] of Object.entries(fields)) {

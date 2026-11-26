@@ -1,7 +1,7 @@
 // Motor de métricas: junta vendas (UtmCai) com gasto (Meta) e custos da operação.
 
 export type Costs = { tax: number; fee: number; fixed: number; products: Record<string, number> };
-export type Level = "campaign" | "adset" | "ad";
+export type Level = "account" | "campaign" | "adset" | "ad";
 
 export type M = {
   spend: number; impressions: number; clicks: number; link_clicks: number; lpv: number; ic: number; meta_purchases: number;
