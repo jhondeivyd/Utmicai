@@ -63,3 +63,26 @@ export async function rotateToken(fd: FormData) {
   await admin().from("workspaces").update({ webhook_token: token }).eq("id", wsId);
   back("Novo token gerado — atualize as URLs de webhook nos checkouts");
 }
+
+export async function saveAccounts(fd: FormData) {
+  const back = mkBack(fd);
+  const wsId = String(fd.get("ws"));
+  await assertCanEdit(wsId);
+  const ids = fd.getAll("acc").map((x) => String(x)).filter((x) => /^act_\d+$/.test(x));
+  if (!ids.length) return back("Escolha pelo menos uma conta de anúncio", false);
+  const { error } = await admin().from("workspaces").update({ meta_ad_account_ids: ids.join(",") }).eq("id", wsId);
+  if (error) return back(error.message, false);
+  const ctx = await assertCanEdit(wsId);
+  const r = await syncWorkspaceSpend({ ...ctx.ws, meta_ad_account_ids: ids.join(",") }, 30);
+  back(`${ids.length} conta(s) ligada(s). ${r.msg}`, r.ok);
+}
+
+export async function disconnectMeta(fd: FormData) {
+  const back = mkBack(fd);
+  const wsId = String(fd.get("ws"));
+  await assertCanEdit(wsId);
+  const { error } = await admin().from("workspaces")
+    .update({ meta_access_token: null, meta_token_expires_at: null, meta_account_name: null }).eq("id", wsId);
+  if (error) return back(error.message, false);
+  back("Facebook desligado deste dashboard");
+}

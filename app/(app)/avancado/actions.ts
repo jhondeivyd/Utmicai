@@ -99,3 +99,22 @@ export async function setSignup(fd: FormData) {
   if (error) return back(error.message, false);
   back(open ? "Cadastro aberto — quem tiver o link pode criar conta" : "Cadastro fechado");
 }
+
+export async function saveMetaApp(fd: FormData) {
+  const ctx = await getContext();
+  if (!ctx.isAdmin) return back("Sem permissão", false);
+  const db = admin();
+  const id = String(fd.get("meta_app_id") || "").trim();
+  const secret = String(fd.get("meta_app_secret") || "").trim();
+  const rows: any[] = [];
+  if (fd.get("clear_app")) {
+    await db.from("app_settings").delete().in("key", ["meta_app_id", "meta_app_secret"]);
+    return back("App do Facebook removida");
+  }
+  if (id) rows.push({ key: "meta_app_id", value: id });
+  if (secret) rows.push({ key: "meta_app_secret", value: secret });
+  if (!rows.length) return back("Preencha o ID da App (e a Chave secreta, na primeira vez)", false);
+  const { error } = await db.from("app_settings").upsert(rows);
+  if (error) return back(error.message, false);
+  back("App do Facebook guardada — já pode usar o botão Ligar com Facebook");
+}

@@ -3,7 +3,7 @@ import { admin } from "@/lib/supabase/admin";
 import { TIMEZONES, CURRENCIES, VIEW_TYPES, tzLabel, curLabel, viewLabel } from "@/lib/options";
 import Icon from "@/components/Icon";
 import ConfirmButton from "@/components/ConfirmButton";
-import { saveDashboard, deleteDashboard, addCollaborator, removeCollaborator, setSignup } from "./actions";
+import { saveDashboard, deleteDashboard, addCollaborator, removeCollaborator, setSignup, saveMetaApp } from "./actions";
 import { appUrl } from "@/lib/appurl";
 import CopyBox from "@/components/CopyBox";
 
@@ -26,13 +26,15 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
   const manageable = ctx.workspaces.filter((w) => ctx.isAdmin || w.role === "owner");
   const editing: any = sp.edit ? (wss || []).find((w: any) => w.id === sp.edit) : sp.new ? { timezone: "Europe/Lisbon", currency: "EUR", view_type: "normal", count_interest: true, meta_cache: true } : null;
   const msg = sp.m ? decodeURIComponent(sp.m) : null;
-  let signupOpen = false, users: any[] = [], wsCount: Record<string, number> = {};
+  let signupOpen = false, users: any[] = [], wsCount: Record<string, number> = {}, metaApp = { id: "", secret: false };
   if (ctx.isAdmin) {
-    const [{ data: st }, { data: us }, { data: allMem }] = await Promise.all([
+    const [{ data: st }, { data: us }, { data: allMem }, { data: appRows }] = await Promise.all([
       db.from("app_settings").select("value").eq("key", "signup_open").maybeSingle(),
       db.from("profiles").select("user_id,email,full_name,is_admin,created_at").order("created_at", { ascending: false }).limit(200),
-      db.from("members").select("user_id,role")
+      db.from("members").select("user_id,role"),
+      db.from("app_settings").select("key,value").in("key", ["meta_app_id", "meta_app_secret"])
     ]);
+    metaApp = { id: (appRows || []).find((x: any) => x.key === "meta_app_id")?.value || "", secret: !!(appRows || []).find((x: any) => x.key === "meta_app_secret")?.value };
     signupOpen = st?.value === "true";
     users = us || [];
     for (const m of allMem || []) if (m.role === "owner") wsCount[m.user_id] = (wsCount[m.user_id] || 0) + 1;
@@ -120,6 +122,24 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {ctx.isAdmin && (
+        <div className="card form" style={{ marginTop: 14 }}>
+          <div className="card-h"><h2>App do Facebook (para o botão “Ligar com Facebook”)</h2>
+            <span className={"badge " + (metaApp.id && metaApp.secret ? "b-approved" : "b-pending")}>{metaApp.id && metaApp.secret ? "Configurada" : "Por configurar"}</span></div>
+          <p className="note">Crie uma app em developers.facebook.com (tipo “Empresa”, produto “Login do Facebook”) e cole aqui os dados. Depois, cada dashboard liga-se com um clique, sem copiar tokens.</p>
+          <CopyBox label="URL de redirecionamento válido — cole nas definições do Login do Facebook da sua app" value={`${app}/api/meta/callback`} />
+          <form action={saveMetaApp} className="form">
+            <div className="row2">
+              <label>ID da App<input className="input" name="meta_app_id" defaultValue={metaApp.id} placeholder="ex.: 1234567890123456" /></label>
+              <label>Chave secreta da App {metaApp.secret ? <span className="ok">• definida</span> : <span className="mut">• vazia</span>}
+                <input className="input" name="meta_app_secret" type="password" autoComplete="off" placeholder={metaApp.secret ? "deixe vazio para manter" : "cole aqui"} /></label>
+            </div>
+            <div className="inline"><button className="btn">Guardar App</button>
+              {metaApp.id && <label className="note inline"><input type="checkbox" name="clear_app" /> remover a app</label>}</div>
+          </form>
         </div>
       )}
 

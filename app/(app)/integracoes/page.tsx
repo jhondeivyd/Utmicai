@@ -6,7 +6,9 @@ import { appUrl } from "@/lib/appurl";
 import CopyBox from "@/components/CopyBox";
 import UtmBuilder from "@/components/UtmBuilder";
 import Icon from "@/components/Icon";
-import { saveSettings, testTelegram, testCapi, testMeta, rotateToken } from "./actions";
+import ConfirmButton from "@/components/ConfirmButton";
+import { saveSettings, testTelegram, testCapi, testMeta, rotateToken, saveAccounts, disconnectMeta } from "./actions";
+import { appCreds, listAdAccounts } from "@/lib/metaoauth";
 
 const META_PARAMS = "utm_source=FB&utm_campaign={{campaign.name}}|{{campaign.id}}&utm_medium={{adset.name}}|{{adset.id}}&utm_content={{ad.name}}|{{ad.id}}&utm_term={{placement}}";
 const TABS: [string, string, string][] = [["anuncios", "Anúncios", "meta"], ["webhooks", "Webhooks", "plug"], ["utms", "UTMs", "utm"], ["pixel", "Pixel", "events"], ["testes", "Testes", "play"]];
@@ -33,7 +35,16 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
   const H = <><input type="hidden" name="ws" value={ws.id} /><input type="hidden" name="tab" value={tab} /></>;
   const accounts = String(ws.meta_ad_account_ids || "").split(",").map((x) => x.trim()).filter(Boolean);
   const steps = [!!ws.meta_access_token && accounts.length > 0, true, !!ws.pixel_id];
+  void steps;
   const db = admin();
+  const { id: appId } = await appCreds();
+  const linked = !!ws.meta_access_token;
+  const expDays = ws.meta_token_expires_at ? Math.round((new Date(ws.meta_token_expires_at).getTime() - Date.now()) / 864e5) : null;
+  let adAccounts: any[] | null = null, accErr: string | null = null;
+  if (tab === "anuncios" && linked && (sp.pick || !accounts.length)) {
+    try { adAccounts = await listAdAccounts(ws.meta_access_token); }
+    catch (e: any) { accErr = e?.message || "Não foi possível ler as contas de anúncio"; }
+  }
   const logs = tab === "testes" || tab === "webhooks" ? (await db.from("webhook_logs").select("*").eq("workspace_id", ws.id).order("created_at", { ascending: false }).limit(15)).data || [] : [];
   const clicks = tab === "testes" ? (await db.from("clicks").select("id,utm_source,utm_campaign,landing_url,created_at").eq("workspace_id", ws.id).order("created_at", { ascending: false }).limit(8)).data || [] : [];
   const when = (d: string) => new Date(d).toLocaleString("pt-BR", { timeZone: ws.timezone, dateStyle: "short", timeStyle: "short" });
@@ -51,27 +62,72 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
 
       {tab === "anuncios" && (
         <div className="grid g-adv">
-          <form action={saveSettings} className="card form">
-            {H}
-            <div className="card-h"><h2><span style={{ display: "inline-flex", verticalAlign: "-3px", marginRight: 6 }}><Icon name="meta" /></span>Meta Ads</h2>
-              <span className={"badge " + (ws.meta_access_token ? "b-approved" : "b-pending")}>{ws.meta_access_token ? "Ligado" : "Não ligado"}</span></div>
-            <Secret name="meta_access_token" label="Token de acesso" set={!!ws.meta_access_token}
-              hint="Business Manager → Usuários do sistema → Gerar token com ads_read e ads_management (sem expiração)." />
-            <label>Contas de anúncio (IDs)<input className="input" name="meta_ad_account_ids" defaultValue={ws.meta_ad_account_ids || ""} placeholder="act_123456789, act_987654321" />
-              <span className="note">Gestor de Anúncios → menu das contas → o número da conta. Separe várias por vírgula.</span></label>
-            <div><button className="btn">Guardar</button></div>
-          </form>
-          <div className="card">
-            <h2>Contas de Anúncio (Meta)</h2>
-            <p className="note">Contas que o UtmCai lê a cada hora (gasto, campanhas, conjuntos e anúncios).</p>
-            <div className="list" style={{ marginTop: 10 }}>
-              {accounts.map((a) => <div key={a} className="int-row"><span>Conta {a.replace("act_", "")}</span><span className="ok">ativa</span></div>)}
-              {!accounts.length && <p className="mut">Nenhuma conta ainda.</p>}
-            </div>
-            {ws.meta_access_token && (
-              <form action={testMeta} style={{ marginTop: 12 }}>{H}<input type="hidden" name="days" value="30" /><button className="btn btn-ghost btn-sm">Sincronizar agora (últimos 30 dias)</button></form>
+          <div className="card form">
+            <div className="card-h"><h2><span style={{ display: "inline-flex", verticalAlign: "-3px", marginRight: 6 }}><Icon name="meta" /></span>Conta do Facebook</h2>
+              <span className={"badge " + (linked ? "b-approved" : "b-pending")}>{linked ? "Ligada" : "Não ligada"}</span></div>
+            {!linked ? (
+              <>
+                <p className="note">Clique no botão, entre com o seu Facebook e escolha as contas de anúncio. Não precisa de copiar nenhum token.</p>
+                {appId
+                  ? <a className="btn btn-fb" href={`/api/meta/login?ws=${ws.id}`}><Icon name="meta" size={18} />Ligar com Facebook</a>
+                  : <div className="flash e">{ctx.isAdmin ? <>Configure primeiro a App do Facebook em <a className="pos" href="/avancado">Avançado</a>.</> : "O administrador ainda não ativou a ligação com o Facebook."}</div>}
+              </>
+            ) : (
+              <>
+                <div className="int-row">
+                  <div><b>{ws.meta_account_name || "Conta ligada"}</b>
+                    <div className="note">{expDays === null ? "Acesso sem prazo" : expDays > 7 ? `O acesso renova-se dentro de ${expDays} dias` : expDays > 0 ? `⚠️ O acesso termina em ${expDays} dia(s) — ligue outra vez` : "⚠️ O acesso expirou — ligue outra vez"}</div></div>
+                  <div className="dash-act">
+                    <a className="btn btn-ghost btn-sm" href={`/api/meta/login?ws=${ws.id}`}>Ligar outra vez</a>
+                    <form action={disconnectMeta}>{H}<ConfirmButton className="btn btn-ghost btn-sm" msg="Desligar o Facebook deste dashboard? As campanhas deixam de atualizar.">Desligar</ConfirmButton></form>
+                  </div>
+                </div>
+                {expDays !== null && expDays <= 7 && <div className="flash e">Carregue em “Ligar outra vez” para renovar o acesso por mais 60 dias.</div>}
+              </>
             )}
-            {ws.meta_last_sync_at && <p className="note" style={{ marginTop: 8 }}>Última sincronização: {when(ws.meta_last_sync_at)}</p>}
+            {ctx.isAdmin && (
+              <details style={{ marginTop: 6 }}>
+                <summary className="note">Avançado: usar um token colado à mão</summary>
+                <form action={saveSettings} className="form" style={{ marginTop: 8 }}>
+                  {H}
+                  <Secret name="meta_access_token" label="Token de acesso" set={linked}
+                    hint="Business Manager → Usuários do sistema → Gerar token com ads_read e ads_management." />
+                  <label>Contas de anúncio (IDs)<input className="input" name="meta_ad_account_ids" defaultValue={ws.meta_ad_account_ids || ""} placeholder="act_123456789, act_987654321" /></label>
+                  <div><button className="btn btn-ghost btn-sm">Guardar</button></div>
+                </form>
+              </details>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-h"><h2>Contas de Anúncio</h2>
+              {linked && !sp.pick && <a className="btn btn-ghost btn-sm" href="/integracoes?tab=anuncios&pick=1">Alterar</a>}</div>
+            {!linked ? <p className="mut">Ligue a sua conta do Facebook para ver aqui as contas de anúncio.</p> : accErr ? (
+              <div className="flash e">{accErr} — carregue em “Ligar outra vez”.</div>
+            ) : adAccounts ? (
+              <form action={saveAccounts} className="form">
+                {H}
+                <p className="note">Escolha as contas que este dashboard vai acompanhar.</p>
+                <div className="list" style={{ maxHeight: 320, overflowY: "auto" }}>
+                  {adAccounts.map((a: any) => (
+                    <label key={a.id} className="radio-card">
+                      <input type="checkbox" name="acc" value={a.id} defaultChecked={accounts.includes(a.id)} />
+                      <div><b>{a.name}</b><div className="note">{a.id.replace("act_", "")} · {a.currency}{a.business ? ` · ${a.business}` : ""}{a.active ? "" : " · inativa"}</div></div>
+                    </label>
+                  ))}
+                  {!adAccounts.length && <p className="mut">Esta conta do Facebook não tem contas de anúncio.</p>}
+                </div>
+                <button className="btn">Guardar e sincronizar</button>
+              </form>
+            ) : (
+              <>
+                <div className="list" style={{ marginTop: 10 }}>
+                  {accounts.map((a) => <div key={a} className="int-row"><span>Conta {a.replace("act_", "")}</span><span className="ok">ativa</span></div>)}
+                </div>
+                <form action={testMeta} style={{ marginTop: 12 }}>{H}<input type="hidden" name="days" value="30" /><button className="btn btn-ghost btn-sm">Sincronizar agora (últimos 30 dias)</button></form>
+                {ws.meta_last_sync_at && <p className="note" style={{ marginTop: 8 }}>Última sincronização: {when(ws.meta_last_sync_at)}</p>}
+              </>
+            )}
           </div>
         </div>
       )}

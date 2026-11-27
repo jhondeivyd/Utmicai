@@ -197,3 +197,6 @@ a.brand{display:flex}
 .chk:after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.15s}
 .chk:checked{background:var(--brand)}.chk:checked:after{left:17px}
 label.toggle-row{grid-template-columns:none}
+.btn-fb{background:#1877F2;border-color:#1877F2}
+.btn-fb:hover{background:#166fe0}
+details summary{cursor:pointer}
