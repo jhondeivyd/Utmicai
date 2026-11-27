@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getContext } from "@/lib/session";
 import { admin } from "@/lib/supabase/admin";
 import { TIMEZONES, CURRENCIES, VIEW_TYPES, tzLabel, curLabel, viewLabel } from "@/lib/options";
@@ -61,7 +62,7 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
                 </div>
                 <div className="dash-act">
                   <a className="btn btn-ghost btn-sm" href={`/api/ws?id=${w.id}&to=/dashboard`}>Abrir</a>
-                  {manageable.some((m) => m.id === w.id) && <a className="icon-btn" title="Editar" href={`/avancado?edit=${w.id}`}><Icon name="edit" size={15} /></a>}
+                  {manageable.some((m) => m.id === w.id) && <Link className="icon-btn" title="Editar" href={`/avancado?edit=${w.id}`}><Icon name="edit" size={15} /></Link>}
                   {(ctx.isAdmin || ctx.workspaces.find((x) => x.id === w.id)?.role === "owner") && (
                     <form action={deleteDashboard}><input type="hidden" name="id" value={w.id} />
                       <ConfirmButton className="icon-btn" title="Apagar" msg={`Apagar o dashboard "${w.name}" e TODOS os dados dele (vendas, campanhas, regras)? Isto não se pode desfazer.`}><Icon name="trash" size={15} /></ConfirmButton>
@@ -72,7 +73,7 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
             ))}
             {!(wss || []).length && <p className="mut">Ainda não há dashboards.</p>}
           </div>
-          <a className="btn" href="/avancado?new=1" style={{ marginTop: 14 }}>Novo Dashboard</a>
+          <Link className="btn" href="/avancado?new=1" style={{ marginTop: 14 }}>Novo Dashboard</Link>
         </div>
 
         <div className="card">
@@ -145,9 +146,9 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
 
       {editing && (
         <>
-          <a className="drawer-bg" href="/avancado" aria-label="Fechar" />
+          <Link className="drawer-bg" href="/avancado" aria-label="Fechar" />
           <form action={saveDashboard} className="drawer form">
-            <div className="card-h"><h2>{editing.id ? "Editar Dashboard" : "Novo Dashboard"}</h2><a className="icon-btn" href="/avancado"><Icon name="close" size={15} /></a></div>
+            <div className="card-h"><h2>{editing.id ? "Editar Dashboard" : "Novo Dashboard"}</h2><Link className="icon-btn" href="/avancado"><Icon name="close" size={15} /></Link></div>
             {editing.id && <input type="hidden" name="id" value={editing.id} />}
             <label>Nome<input className="input" name="name" defaultValue={editing.name || ""} placeholder="Ex.: Loja Itália" required /></label>
             <label>Descrição<input className="input" name="description" defaultValue={editing.description || ""} placeholder="Ex.: Contém apenas as vendas do Produto X" /></label>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
@@ -37,7 +38,7 @@ export default async function Despesas({ searchParams }: { searchParams: Promise
       {msg && <div className={"flash" + (msg.startsWith("e:") ? " e" : "")}>{msg.slice(msg.indexOf(":") + 1)}</div>}
       <div className="card">
         <div className="card-h"><div><h2>Despesas</h2><div className="note">Use esta tela para adicionar despesas personalizadas (ferramentas, equipa, criativos…). Entram no lucro do Resumo.</div></div>
-          <a className="btn" href={keep({ edit: "new" })}>Adicionar gasto</a></div>
+          <Link className="btn" href={keep({ edit: "new" })}>Adicionar gasto</Link></div>
         <form method="get" action="/despesas" className="fb-row" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 12, marginTop: 14 }}>
           <label>Descrição<input className="input" name="q" defaultValue={sp.q || ""} placeholder="Procurar" /></label>
           <label>Categoria<AutoSelect name="cat" defaultValue={sp.cat || ""} options={[["", "Qualquer"], ...CATEGORIES.map((c) => [c, c] as [string, string])]} /></label>
@@ -57,7 +58,7 @@ export default async function Despesas({ searchParams }: { searchParams: Promise
                 <td className="name">{x.description || "—"}</td>
                 <td className="n">{m(Number(x.amount))}</td>
                 <td><div className="dash-act">
-                  <a className="icon-btn" href={keep({ edit: x.id })} title="Editar"><Icon name="edit" size={15} /></a>
+                  <Link className="icon-btn" href={keep({ edit: x.id })} title="Editar"><Icon name="edit" size={15} /></Link>
                   <form action={deleteExpense}>{H}<input type="hidden" name="id" value={x.id} /><ConfirmButton className="icon-btn" title="Apagar" msg="Apagar esta despesa?"><Icon name="trash" size={15} /></ConfirmButton></form>
                 </div></td>
               </tr>
@@ -69,10 +70,10 @@ export default async function Despesas({ searchParams }: { searchParams: Promise
 
       {editing && (
         <>
-          <a className="drawer-bg" href={keep({})} aria-label="Fechar" />
+          <Link className="drawer-bg" href={keep({})} aria-label="Fechar" />
           <form action={saveExpense} className="drawer form">
             {H}{editing.id && <input type="hidden" name="id" value={editing.id} />}
-            <div className="card-h"><h2>{editing.id ? "Editar gasto" : "Adicionar gasto"}</h2><a className="icon-btn" href={keep({})}><Icon name="close" size={15} /></a></div>
+            <div className="card-h"><h2>{editing.id ? "Editar gasto" : "Adicionar gasto"}</h2><Link className="icon-btn" href={keep({})}><Icon name="close" size={15} /></Link></div>
             <label>Data<input className="input" type="date" name="date" defaultValue={editing.date} required /></label>
             <label>Tipo<select className="input" name="kind" defaultValue={editing.kind}><option value="unica">Única</option><option value="mensal">Mensal (repete todos os meses a partir desta data)</option></select></label>
             <label>Categoria<select className="input" name="category" defaultValue={editing.category}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></label>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
 import { admin } from "@/lib/supabase/admin";
@@ -38,7 +39,7 @@ export default async function Utms({ searchParams }: { searchParams: Promise<Rec
     <>
       <FilterBar base="/utms" values={{ p: r.p, from: r.from, to: r.to }} keep={{ by }} filters={[]} />
       <div className="subtabs" style={{ marginTop: 14 }}>
-        {PARAMS.map(([k, l]) => <a key={k} className={k === by ? "on" : ""} href={"/utms?" + new URLSearchParams({ ...sp, by: k })}>{l}</a>)}
+        {PARAMS.map(([k, l]) => <Link key={k} className={k === by ? "on" : ""} href={"/utms?" + new URLSearchParams({ ...sp, by: k })}>{l}</Link>)}
       </div>
       <div className="card tbl">
         <div className="card-h" style={{ padding: "14px 16px 6px" }}>

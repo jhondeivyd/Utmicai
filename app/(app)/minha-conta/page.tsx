@@ -1,11 +1,9 @@
 import { getContext } from "@/lib/session";
-import { admin } from "@/lib/supabase/admin";
 import { saveProfile, changePassword } from "./actions";
 
 export default async function MinhaConta({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const sp = await searchParams;
   const ctx = await getContext();
-  const { data: prof } = await admin().from("profiles").select("full_name").eq("user_id", ctx.user.id).maybeSingle();
   const msg = sp.m ? decodeURIComponent(sp.m) : null;
   return (
     <>
@@ -14,7 +12,7 @@ export default async function MinhaConta({ searchParams }: { searchParams: Promi
         <form action={saveProfile} className="card form">
           <h2>Detalhes da conta</h2>
           <div className="row2">
-            <label>Nome<input className="input" name="full_name" defaultValue={(prof as any)?.full_name || ""} placeholder="O seu nome" /></label>
+            <label>Nome<input className="input" name="full_name" defaultValue={ctx.fullName || ""} placeholder="O seu nome" /></label>
             <label>E-mail<input className="input" value={ctx.user.email || ""} readOnly /></label>
           </div>
           <label>Tipo de acesso<input className="input" value={ctx.isAdmin ? "Administrador" : "Utilizador"} readOnly /></label>

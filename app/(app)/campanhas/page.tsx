@@ -1,3 +1,4 @@
+import Link from "next/link";
 import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
 import { resolveRange } from "@/lib/dates";
@@ -84,12 +85,12 @@ export default async function Meta({ searchParams }: { searchParams: Promise<Rec
         <div><h1>Meta</h1><div className="sub">Campanhas do Facebook e Instagram com as vendas reais do UtmCai</div></div>
       </div>
       {msg && <div className={"flash" + (msg.startsWith("e:") ? " e" : "")}>{msg.slice(msg.indexOf(":") + 1)}</div>}
-      {!ws.meta_access_token && <div className="flash e">Ligue o Meta Ads em <a className="pos" href="/config">Configurações</a> para ver e gerir as campanhas.</div>}
+      {!ws.meta_access_token && <div className="flash e">Ligue o Meta Ads em <Link className="pos" href="/config">Configurações</Link> para ver e gerir as campanhas.</div>}
 
       <div className="tabs" style={{ marginBottom: 14, display: "grid", gridTemplateColumns: "repeat(4,1fr)" }}>
         {(Object.keys(LV) as Level[]).map((k) => (
-          <a key={k} className={"tab" + (k === level ? " on" : "")} style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center" }}
-            href={"/campanhas?" + new URLSearchParams(Object.fromEntries(Object.entries({ ...base, l: k }).filter(([, v]) => v)) as any)}><Icon name={ICON[k]} size={15} />{LV[k]}</a>
+          <Link key={k} className={"tab" + (k === level ? " on" : "")} style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center" }}
+            href={"/campanhas?" + new URLSearchParams(Object.fromEntries(Object.entries({ ...base, l: k }).filter(([, v]) => v)) as any)}><Icon name={ICON[k]} size={15} />{LV[k]}</Link>
         ))}
       </div>
 
@@ -117,9 +118,9 @@ export default async function Meta({ searchParams }: { searchParams: Promise<Rec
 
       {(parent || f.account) && (
         <div className="crumbs">
-          <a href={"/campanhas?" + new URLSearchParams({ p: r.p, l: "campaign" })}>Todas as campanhas</a>
+          <Link href={"/campanhas?" + new URLSearchParams({ p: r.p, l: "campaign" })}>Todas as campanhas</Link>
           {f.account && <><Icon name="chevron" size={12} /><span>Conta {f.account.replace("act_", "")}</span></>}
-          {campEnt && <><Icon name="chevron" size={12} /><a href={href({ l: "adset", parent: campEnt.id })}>{campEnt.name}</a></>}
+          {campEnt && <><Icon name="chevron" size={12} /><Link href={href({ l: "adset", parent: campEnt.id })}>{campEnt.name}</Link></>}
           {parentEnt?.level === "adset" && <><Icon name="chevron" size={12} /><span>{parentEnt.name}</span></>}
         </div>
       )}

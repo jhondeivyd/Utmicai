@@ -1,3 +1,4 @@
+import Link from "next/link";
 import NoWs from "@/components/NoWs";
 import { redirect } from "next/navigation";
 import { getContext } from "@/lib/session";
@@ -54,13 +55,13 @@ export default async function Regras({ searchParams }: { searchParams: Promise<R
   return (
     <>
       {msg && <div className={"flash" + (msg.startsWith("e:") ? " e" : "")}>{msg.slice(msg.indexOf(":") + 1)}</div>}
-      {!ws.meta_access_token && <div className="flash e">Ligue o Meta Ads em <a className="pos" href="/integracoes">Integrações</a> antes de criar regras.</div>}
-      <div className="subtabs"><a className="on" href="/regras"><Icon name="meta" size={16} />Meta</a></div>
+      {!ws.meta_access_token && <div className="flash e">Ligue o Meta Ads em <Link className="pos" href="/integracoes">Integrações</Link> antes de criar regras.</div>}
+      <div className="subtabs"><Link className="on" href="/regras"><Icon name="meta" size={16} />Meta</Link></div>
 
       <div className="card tbl" style={{ padding: 0 }}>
         <div className="card-h" style={{ padding: "14px 16px" }}>
           <h2>Regras <span className="info" title="O UtmCai verifica as regras com as vendas reais e age no Meta por si">ⓘ</span></h2>
-          <div className="inline"><a className="btn btn-ghost btn-sm" href="/regras?mais=1">Mais</a><a className="btn btn-sm" href="/regras?new=1">Criar regra</a></div>
+          <div className="inline"><Link className="btn btn-ghost btn-sm" href="/regras?mais=1">Mais</Link><Link className="btn btn-sm" href="/regras?new=1">Criar regra</Link></div>
         </div>
         <table>
           <thead><tr><th style={{ width: 70 }}>Status</th><th>Nome e produto</th><th>Aplicada a</th><th>Ação e condição</th><th>Frequência e período</th><th style={{ width: 120 }}>Mais</th></tr></thead>
@@ -77,7 +78,7 @@ export default async function Regras({ searchParams }: { searchParams: Promise<R
                   <div className="note">Período: {WINDOWS[r.time_window]}{r.hour_from != null ? ` · das ${r.hour_from}h às ${r.hour_to}h` : ""}{r.daily_limit ? ` · máx. ${r.daily_limit}/dia` : ""}</div></td>
                 <td><div className="inline">
                   <form action={testRule}>{H}<input type="hidden" name="id" value={r.id} /><button className="icon-btn" title="Simular agora (não muda nada no Meta)"><Icon name="play" size={14} /></button></form>
-                  <a className="icon-btn" href={`/regras?edit=${r.id}`} title="Editar"><Icon name="edit" size={14} /></a>
+                  <Link className="icon-btn" href={`/regras?edit=${r.id}`} title="Editar"><Icon name="edit" size={14} /></Link>
                   <form action={deleteRule}>{H}<input type="hidden" name="id" value={r.id} /><ConfirmButton className="icon-btn" title="Apagar" msg={`Apagar a regra "${r.name}"?`}><Icon name="trash" size={14} /></ConfirmButton></form>
                 </div></td>
               </tr>
@@ -102,14 +103,14 @@ export default async function Regras({ searchParams }: { searchParams: Promise<R
 
       {sp.mais && (
         <>
-          <a className="drawer-bg" href="/regras" aria-label="Fechar" />
+          <Link className="drawer-bg" href="/regras" aria-label="Fechar" />
           <div className="drawer form">
-            <div className="card-h"><h2>Modelos de regra</h2><a className="icon-btn" href="/regras"><Icon name="close" size={15} /></a></div>
+            <div className="card-h"><h2>Modelos de regra</h2><Link className="icon-btn" href="/regras"><Icon name="close" size={15} /></Link></div>
             <p className="note">Escolha um modelo para começar. Abre em modo simulação para poder ver o que faria antes de mexer no Meta.</p>
             {TEMPLATES.map((t, i) => (
-              <a key={i} href={`/regras?tpl=${i}`} className="int-row" style={{ display: "block" }}>
+              <Link key={i} href={`/regras?tpl=${i}`} className="int-row" style={{ display: "block" }}>
                 <b>{t.name}</b><div className="note">{actTxt(t)} · se {condTxt(t)} · {FREQS[String(t.frequency_min)]}</div>
-              </a>
+              </Link>
             ))}
           </div>
         </>
@@ -117,11 +118,11 @@ export default async function Regras({ searchParams }: { searchParams: Promise<R
 
       {editing && (
         <>
-          <a className="drawer-bg" href="/regras" aria-label="Fechar" />
+          <Link className="drawer-bg" href="/regras" aria-label="Fechar" />
           <form action={saveRule} className="drawer form" style={{ width: "min(560px,100vw)" }}>
             {H}{editing.id && <input type="hidden" name="id" value={editing.id} />}
             <div className="card-h"><div><h2>{editing.id ? "Editar regra" : "Criar regra personalizada"}</h2><div className="note">Atualize campanhas, conjuntos ou anúncios por meio de regras automatizadas.</div></div>
-              <a className="icon-btn" href="/regras"><Icon name="close" size={15} /></a></div>
+              <Link className="icon-btn" href="/regras"><Icon name="close" size={15} /></Link></div>
             <label>Nome da regra<input className="input" name="name" defaultValue={editing.name || ""} placeholder="Ex.: CPA + 15 Euros" required /></label>
             <label>Aplicar regra a<select className="input" name="level" defaultValue={editing.level}>{Object.keys(LEVELS).map((k) => <option key={k} value={k}>{LV_ACTIVE[k]}</option>)}</select>
               <span className="note">Com a ação “Ativar”, a regra procura os que estão pausados.</span></label>
@@ -157,7 +158,7 @@ export default async function Regras({ searchParams }: { searchParams: Promise<R
             <label>Limite de Execuções Diária<select className="input" name="daily_limit" defaultValue={editing.daily_limit ?? ""}><option value="">Sem Limite</option>{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
             <label className="inline" style={{ display: "inline-flex" }}><input type="checkbox" name="dry_run" defaultChecked={!!editing.dry_run} /> Modo simulação (só regista e avisa, não mexe no Meta)</label>
             <label className="inline" style={{ display: "inline-flex" }}><input type="checkbox" name="notify" defaultChecked={editing.notify !== false} /> Avisar no Telegram quando agir</label>
-            <div className="inline" style={{ justifyContent: "flex-end" }}><a className="btn btn-ghost" href="/regras">Cancelar</a><button className="btn">Salvar</button></div>
+            <div className="inline" style={{ justifyContent: "flex-end" }}><Link className="btn btn-ghost" href="/regras">Cancelar</Link><button className="btn">Salvar</button></div>
           </form>
         </>
       )}

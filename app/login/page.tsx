@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { login } from "./actions";
 import { Logo } from "@/components/Icon";
 export default async function Login({ searchParams }: { searchParams: Promise<{ e?: string }> }) {
@@ -10,7 +11,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <label>E-mail<input className="input" name="email" type="email" required autoComplete="email" /></label>
         <label>Senha<input className="input" name="password" type="password" required autoComplete="current-password" /></label>
         <button className="btn" style={{ justifyContent: "center" }}>Entrar</button>
-        <div className="note" style={{ textAlign: "center" }}>Ainda não tem conta? <a className="pos" href="/cadastro">Criar conta grátis</a></div>
+        <div className="note" style={{ textAlign: "center" }}>Ainda não tem conta? <Link className="pos" href="/cadastro">Criar conta grátis</Link></div>
       </form>
     </div>
   );

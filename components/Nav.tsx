@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Icon from "./Icon";
@@ -40,8 +41,9 @@ export default function Nav({ list, current, isAdmin }: { list: W[]; current?: s
             {isExp && (
               <div className="ws-sub">
                 {WS_PAGES.filter(([, , , edit]) => !edit || canEdit).map(([href, label, icon]) => (
-                  <a key={href} href={isCur ? href : `/api/ws?id=${w.id}&to=${encodeURIComponent(href)}`}
-                    className={isCur && onWsPage && p.startsWith(href) ? "on" : ""}><Icon name={icon} size={16} />{label}</a>
+                  isCur
+                    ? <Link key={href} href={href} prefetch className={onWsPage && p.startsWith(href) ? "on" : ""}><Icon name={icon} size={16} />{label}</Link>
+                    : <a key={href} href={`/api/ws?id=${w.id}&to=${encodeURIComponent(href)}`}><Icon name={icon} size={16} />{label}</a>
                 ))}
               </div>
             )}
@@ -50,8 +52,8 @@ export default function Nav({ list, current, isAdmin }: { list: W[]; current?: s
       })}
       {open && !list.length && <div className="note" style={{ padding: "4px 12px" }}>Nenhum dashboard ainda.</div>}
       <div className="sep" />
-      <a href="/minha-conta" className={p.startsWith("/minha-conta") ? "on" : ""}><Icon name="user" />Minha conta</a>
-      <a href="/avancado" className={p.startsWith("/avancado") ? "on" : ""}><Icon name="gear" />Avançado</a>
+      <Link href="/minha-conta" className={p.startsWith("/minha-conta") ? "on" : ""}><Icon name="user" />Minha conta</Link>
+      <Link href="/avancado" className={p.startsWith("/avancado") ? "on" : ""}><Icon name="gear" />Avançado</Link>
     </nav>
   );
 }

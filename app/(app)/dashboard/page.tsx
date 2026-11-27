@@ -1,3 +1,4 @@
+import Link from "next/link";
 import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
 import { resolveRange, addDays } from "@/lib/dates";
@@ -157,7 +158,7 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<R
       </div>
 
       <div className="card" style={{ marginTop: 14, padding: 0 }}>
-        <div className="top" style={{ padding: "16px 18px 0" }}><h2 style={{ margin: 0 }}>Campanhas com mais lucro</h2><a className="btn btn-ghost btn-sm" href={`/campanhas?p=${r.p}&from=${r.from}&to=${r.to}`}>Ver todas</a></div>
+        <div className="top" style={{ padding: "16px 18px 0" }}><h2 style={{ margin: 0 }}>Campanhas com mais lucro</h2><Link className="btn btn-ghost btn-sm" href={`/campanhas?p=${r.p}&from=${r.from}&to=${r.to}`}>Ver todas</Link></div>
         <div className="tbl" style={{ marginTop: 12 }}>
           <table>
             <thead><tr><th>Campanha</th><th className="n">Gasto</th><th className="n">Vendas</th><th className="n">Faturamento</th><th className="n">Lucro</th><th className="n">ROAS</th><th className="n">CPA</th></tr></thead>

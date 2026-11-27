@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
@@ -34,7 +35,7 @@ export default async function Eventos({ searchParams }: { searchParams: Promise<
 
   return (
     <>
-      <div className="subtabs">{KINDS.map(([x, l]) => <a key={x} href={x ? `/eventos?k=${x}` : "/eventos"} className={x === k ? "on" : ""}>{l}</a>)}</div>
+      <div className="subtabs">{KINDS.map(([x, l]) => <Link key={x} href={x ? `/eventos?k=${x}` : "/eventos"} className={x === k ? "on" : ""}>{l}</Link>)}</div>
       <div className="card tbl">
         <table>
           <thead><tr><th style={{ width: 170 }}>Data</th><th style={{ width: 140 }}>Evento</th><th>Detalhe</th></tr></thead>

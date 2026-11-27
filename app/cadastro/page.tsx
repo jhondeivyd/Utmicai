@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { signup } from "./actions";
 import { Logo } from "@/components/Icon";
 import { admin } from "@/lib/supabase/admin";
@@ -25,7 +26,7 @@ export default async function Cadastro({ searchParams }: { searchParams: Promise
             <button className="btn" style={{ justifyContent: "center" }}>Criar conta</button>
           </>
         )}
-        <div className="note" style={{ textAlign: "center" }}>Já tem conta? <a className="pos" href="/login">Entrar</a></div>
+        <div className="note" style={{ textAlign: "center" }}>Já tem conta? <Link className="pos" href="/login">Entrar</Link></div>
       </form>
     </div>
   );

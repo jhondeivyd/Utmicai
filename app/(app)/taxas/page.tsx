@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
@@ -45,7 +46,7 @@ export default async function Taxas({ searchParams }: { searchParams: Promise<Re
           </form>
 
           <div className="card">
-            <div className="card-h"><h2>Taxas</h2><a className="btn btn-ghost btn-sm" href="/taxas?fee=new">Adicionar Taxa</a></div>
+            <div className="card-h"><h2>Taxas</h2><Link className="btn btn-ghost btn-sm" href="/taxas?fee=new">Adicionar Taxa</Link></div>
             <p className="note">Configure taxas do checkout / gateway (Stripe, KashPay…). Entram no faturamento líquido e no lucro.</p>
             <div className="list" style={{ marginTop: 10 }}>
               {(fees || []).map((f: any) => (
@@ -54,7 +55,7 @@ export default async function Taxas({ searchParams }: { searchParams: Promise<Re
                     <div className="note">Taxa: {Number(f.percent).toFixed(2).replace(".", ",")}%{Number(f.fixed) ? ` + ${m(Number(f.fixed))} por venda` : ""} · Forma de pagamento: {f.payment_method === "todas" ? "Todas" : METHOD_LABEL[f.payment_method] || f.payment_method} · Regra: valor de faturamento</div>
                   </div>
                   <div className="dash-act">
-                    <a className="icon-btn" href={`/taxas?fee=${f.id}`} title="Editar"><Icon name="edit" size={15} /></a>
+                    <Link className="icon-btn" href={`/taxas?fee=${f.id}`} title="Editar"><Icon name="edit" size={15} /></Link>
                     <form action={deleteFee}>{H}<input type="hidden" name="id" value={f.id} /><ConfirmButton className="icon-btn" title="Apagar" msg={`Apagar a taxa "${f.name}"?`}><Icon name="trash" size={15} /></ConfirmButton></form>
                   </div>
                 </div>
@@ -85,10 +86,10 @@ export default async function Taxas({ searchParams }: { searchParams: Promise<Re
 
       {editingFee && (
         <>
-          <a className="drawer-bg" href="/taxas" aria-label="Fechar" />
+          <Link className="drawer-bg" href="/taxas" aria-label="Fechar" />
           <form action={saveFee} className="drawer form">
             {H}{editingFee.id && <input type="hidden" name="id" value={editingFee.id} />}
-            <div className="card-h"><h2>{editingFee.id ? "Editar Taxa" : "Adicionar Taxa"}</h2><a className="icon-btn" href="/taxas"><Icon name="close" size={15} /></a></div>
+            <div className="card-h"><h2>{editingFee.id ? "Editar Taxa" : "Adicionar Taxa"}</h2><Link className="icon-btn" href="/taxas"><Icon name="close" size={15} /></Link></div>
             <label>Nome<input className="input" name="name" defaultValue={editingFee.name || ""} placeholder="Ex.: Stripe 3%" required /></label>
             <div className="row2">
               <label>Taxa (%)<input className="input" name="percent" defaultValue={editingFee.percent ?? ""} placeholder="3,00" inputMode="decimal" /></label>

@@ -200,3 +200,15 @@ label.toggle-row{grid-template-columns:none}
 .btn-fb{background:#1877F2;border-color:#1877F2}
 .btn-fb:hover{background:#166fe0}
 details summary{cursor:pointer}
+
+/* ---------- carregamento rápido ---------- */
+@keyframes skelpulse{0%,100%{opacity:.45}50%{opacity:.8}}
+.skel{background:linear-gradient(90deg,var(--panel2),var(--panel3),var(--panel2));border:1px solid var(--line);border-radius:12px;animation:skelpulse 1.1s ease-in-out infinite}
+.skel-wrap{display:grid;gap:14px}
+.skel-top{height:52px}
+.skel-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.skel-tile{height:96px}
+.skel-block{height:320px}
+.filterbar.loading{opacity:.55;pointer-events:none;transition:opacity .12s}
+.input:disabled{opacity:.6}
+@media (max-width:900px){.skel-grid{grid-template-columns:repeat(2,1fr)}}

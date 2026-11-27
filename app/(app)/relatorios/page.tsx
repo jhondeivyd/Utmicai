@@ -1,3 +1,4 @@
+import Link from "next/link";
 import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
 import { resolveRange, addDays } from "@/lib/dates";
@@ -59,7 +60,7 @@ export default async function Relatorios({ searchParams }: { searchParams: Promi
         <div className="card-h" style={{ padding: "14px 16px 6px" }}>
           <h2>Relatório</h2>
           <div className="inline">
-            <div className="tabs">{GROUPS.map(([k, l]) => <a key={k} className={"tab" + (g === k ? " on" : "")} href={"/relatorios?" + new URLSearchParams({ ...sp, g: k })}>{l}</a>)}</div>
+            <div className="tabs">{GROUPS.map(([k, l]) => <Link key={k} className={"tab" + (g === k ? " on" : "")} href={"/relatorios?" + new URLSearchParams({ ...sp, g: k })}>{l}</Link>)}</div>
             <CsvButton name={`utmcai-relatorio-${r.from}-${r.to}.csv`} rows={csv} />
           </div>
         </div>

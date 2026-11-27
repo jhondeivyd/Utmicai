@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 const PERIODS: [string, string][] = [
   ["today", "Hoje"], ["yesterday", "Ontem"], ["7d", "Últimos 7 dias"], ["30d", "Últimos 30 dias"], ["90d", "Últimos 90 dias"],
@@ -10,6 +11,8 @@ export type FilterDef = { key: string; label: string; options: Opt[] };
 
 export default function FilterBar({ base, values, filters, keep = {}, more = [] }:
   { base: string; values: Record<string, string>; filters: FilterDef[]; keep?: Record<string, string>; more?: FilterDef[] }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
   const [showMore, setShowMore] = useState(more.some((f) => values[f.key]));
   const [cf, setCf] = useState(values.from || ""), [ct, setCt] = useState(values.to || "");
   const go = (patch: Record<string, string>) => {
@@ -17,7 +20,7 @@ export default function FilterBar({ base, values, filters, keep = {}, more = [] 
     const all = { ...keep, ...values, ...patch };
     for (const [k, v] of Object.entries(all)) if (v) q.set(k, v);
     if (all.p !== "custom") { q.delete("from"); q.delete("to"); }
-    location.href = `${base}?${q.toString()}`;
+    start(() => router.push(`${base}?${q.toString()}`));
   };
   const Sel = (f: FilterDef) => (
     <label key={f.key} className="fb-item">{f.label}
@@ -28,7 +31,7 @@ export default function FilterBar({ base, values, filters, keep = {}, more = [] 
     </label>
   );
   return (
-    <div className="filterbar">
+    <div className={"filterbar" + (pending ? " loading" : "")}>
       <div className="fb-row">
         <label className="fb-item fb-wide">Período de visualização
           <select className="input" value={values.p || "today"} onChange={(e) => e.target.value === "custom" ? go({ p: "custom", from: cf || new Date().toISOString().slice(0, 10), to: ct || new Date().toISOString().slice(0, 10) }) : go({ p: e.target.value })}>

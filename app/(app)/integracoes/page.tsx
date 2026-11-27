@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
@@ -57,7 +58,7 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
         <div className="note">{steps[0] ? "✓ Meta Ads ligado" : "• Ligue o Meta Ads"} · {"✓ Webhooks prontos a usar"} · {steps[2] ? "✓ Pixel configurado" : "• Pixel por configurar (opcional)"}</div>
       </div>
       <div className="subtabs">
-        {TABS.map(([k, l, ic]) => <a key={k} href={`/integracoes?tab=${k}`} className={k === tab ? "on" : ""}><Icon name={ic} size={16} />{l}</a>)}
+        {TABS.map(([k, l, ic]) => <Link key={k} href={`/integracoes?tab=${k}`} className={k === tab ? "on" : ""}><Icon name={ic} size={16} />{l}</Link>)}
       </div>
 
       {tab === "anuncios" && (
@@ -70,7 +71,7 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
                 <p className="note">Clique no botão, entre com o seu Facebook e escolha as contas de anúncio. Não precisa de copiar nenhum token.</p>
                 {appId
                   ? <a className="btn btn-fb" href={`/api/meta/login?ws=${ws.id}`}><Icon name="meta" size={18} />Ligar com Facebook</a>
-                  : <div className="flash e">{ctx.isAdmin ? <>Configure primeiro a App do Facebook em <a className="pos" href="/avancado">Avançado</a>.</> : "O administrador ainda não ativou a ligação com o Facebook."}</div>}
+                  : <div className="flash e">{ctx.isAdmin ? <>Configure primeiro a App do Facebook em <Link className="pos" href="/avancado">Avançado</Link>.</> : "O administrador ainda não ativou a ligação com o Facebook."}</div>}
               </>
             ) : (
               <>
@@ -101,7 +102,7 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
 
           <div className="card">
             <div className="card-h"><h2>Contas de Anúncio</h2>
-              {linked && !sp.pick && <a className="btn btn-ghost btn-sm" href="/integracoes?tab=anuncios&pick=1">Alterar</a>}</div>
+              {linked && !sp.pick && <Link className="btn btn-ghost btn-sm" href="/integracoes?tab=anuncios&pick=1">Alterar</Link>}</div>
             {!linked ? <p className="mut">Ligue a sua conta do Facebook para ver aqui as contas de anúncio.</p> : accErr ? (
               <div className="flash e">{accErr} — carregue em “Ligar outra vez”.</div>
             ) : adAccounts ? (

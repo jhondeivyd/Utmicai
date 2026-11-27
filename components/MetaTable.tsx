@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import BudgetCell from "./BudgetCell";
 import ConfirmButton from "./ConfirmButton";
@@ -166,7 +167,7 @@ export default function MetaTable(props: {
                         msg={`${r.status === "ACTIVE" ? "Pausar" : "Ativar"} "${r.name}" no Meta?`}>{""}</ConfirmButton>
                     </form>) : <span className={"badge b-" + (r.status || "PAUSED")}>{r.status === "ACTIVE" ? "Ativa" : r.status ? r.status.toLowerCase() : "—"}</span>}</td>}
                   <td className="name">
-                    {r.id && props.childHref[r.id] ? <a href={props.childHref[r.id]} style={{ fontWeight: 600 }}>{r.name}</a> : <span style={{ fontWeight: 600 }}>{r.name}</span>}
+                    {r.id && props.childHref[r.id] ? <Link href={props.childHref[r.id]} style={{ fontWeight: 600 }}>{r.name}</Link> : <span style={{ fontWeight: 600 }}>{r.name}</span>}
                     <div className="note">{r.effective_status && r.effective_status !== r.status ? r.effective_status.replace(/_/g, " ").toLowerCase() : r.id ? "" : "vendas sem ID"}</div>
                   </td>
                   {shown.map((c) => <td key={c.key} className={c.kind === "special" ? "" : "n"}>{cell(r, c)}</td>)}

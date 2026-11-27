@@ -1,3 +1,4 @@
+import Link from "next/link";
 import NoWs from "@/components/NoWs";
 import { getContext } from "@/lib/session";
 import { admin } from "@/lib/supabase/admin";
@@ -27,8 +28,8 @@ export default async function Vendas({ searchParams }: { searchParams: Promise<R
         <RangeBar base="/vendas" p={r.p} from={r.from} to={r.to} extra={extra} />
       </div>
       <div className="tabs" style={{ marginBottom: 12 }}>
-        <a className={"tab" + (!sp.s ? " on" : "")} href={`/vendas?p=${r.p}&from=${r.from}&to=${r.to}`}>Todas</a>
-        {Object.entries(ST).map(([k, l]) => <a key={k} className={"tab" + (sp.s === k ? " on" : "")} href={`/vendas?p=${r.p}&from=${r.from}&to=${r.to}&s=${k}`}>{l}</a>)}
+        <Link className={"tab" + (!sp.s ? " on" : "")} href={`/vendas?p=${r.p}&from=${r.from}&to=${r.to}`}>Todas</Link>
+        {Object.entries(ST).map(([k, l]) => <Link key={k} className={"tab" + (sp.s === k ? " on" : "")} href={`/vendas?p=${r.p}&from=${r.from}&to=${r.to}&s=${k}`}>{l}</Link>)}
       </div>
       <div className="card tbl">
         <table>
