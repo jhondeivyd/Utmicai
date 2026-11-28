@@ -8,7 +8,7 @@ import CopyBox from "@/components/CopyBox";
 import UtmBuilder from "@/components/UtmBuilder";
 import Icon from "@/components/Icon";
 import ConfirmButton from "@/components/ConfirmButton";
-import { saveSettings, testTelegram, testCapi, testMeta, rotateToken, saveAccounts, disconnectMeta } from "./actions";
+import { saveSettings, testTelegram, testCapi, testMeta, rotateToken, saveAccounts, disconnectMeta, createConnectLink } from "./actions";
 import { appCreds, listAdAccounts } from "@/lib/metaoauth";
 
 const META_PARAMS = "utm_source=FB&utm_campaign={{campaign.name}}|{{campaign.id}}&utm_medium={{adset.name}}|{{adset.id}}&utm_content={{ad.name}}|{{ad.id}}&utm_term={{placement}}";
@@ -17,7 +17,7 @@ const TABS: [string, string, string][] = [["anuncios", "Anúncios", "meta"], ["w
 function Secret({ name, label, set, hint }: { name: string; label: string; set: boolean; hint?: string }) {
   return (
     <label>{label} {set ? <span className="ok">• definido</span> : <span className="mut">• vazio</span>}
-      <input className="input" name={name} type="password" placeholder={set ? "deixe vazio para manter" : "cole aqui"} autoComplete="off" />
+      <input className="input" name={name} type="password" placeholder={set ? "deixe vazio para manter" : "cole aqui"} autoComplete="new-password" data-1p-ignore data-lpignore="true" />
       {set && <span className="note"><input type="checkbox" name={`clear_${name}`} /> apagar</span>}
       {hint && <span className="note">{hint}</span>}
     </label>
@@ -61,6 +61,14 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
         {TABS.map(([k, l, ic]) => <Link key={k} href={`/integracoes?tab=${k}`} className={k === tab ? "on" : ""}><Icon name={ic} size={16} />{l}</Link>)}
       </div>
 
+      {tab === "anuncios" && sp.link && (
+        <div className="card form" style={{ marginBottom: 14, borderColor: "#3a3270" }}>
+          <h2>Link para ligar noutro navegador</h2>
+          <p className="note">Copie e abra este link <b>no navegador multilogin</b>, no perfil que tem a conta de anúncio. Lá entra no Facebook e autoriza. Depois volte aqui e atualize a página.</p>
+          <CopyBox label="Válido durante 1 hora e só pode ser usado uma vez" value={`${app}/ligar/${sp.link}`} />
+        </div>
+      )}
+
       {tab === "anuncios" && (
         <div className="grid g-adv">
           <div className="card form">
@@ -70,8 +78,12 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
               <>
                 <p className="note">Clique no botão, entre com o seu Facebook e escolha as contas de anúncio. Não precisa de copiar nenhum token.</p>
                 {appId
-                  ? <a className="btn btn-fb" href={`/api/meta/login?ws=${ws.id}`}><Icon name="meta" size={18} />Ligar com Facebook</a>
-                  : <div className="flash e">{ctx.isAdmin ? <>Configure primeiro a App do Facebook em <Link className="pos" href="/avancado">Avançado</Link>.</> : "O administrador ainda não ativou a ligação com o Facebook."}</div>}
+                  ? <div className="grid" style={{ gap: 8 }}>
+                      <a className="btn btn-fb" href={`/api/meta/login?ws=${ws.id}`}><Icon name="meta" size={18} />Ligar com Facebook</a>
+                      <form action={createConnectLink}>{H}<button className="btn btn-ghost" style={{ width: "100%", justifyContent: "center" }}><Icon name="copy" size={15} />Copiar link para navegador multilogin</button></form>
+                      <span className="note">Use o link quando a conta de anúncio estiver noutro navegador (multilogin / anti-detect) ou for de um colaborador.</span>
+                    </div>
+                  : <div className="flash e">{ctx.isAdmin ? <>Configure primeiro a App do Facebook em <Link className="pos" href="/avancado#appfb">Avançado</Link> — é o primeiro cartão da página.</> : "O administrador ainda não ativou a ligação com o Facebook."}</div>}
               </>
             ) : (
               <>
@@ -80,6 +92,7 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
                     <div className="note">{expDays === null ? "Acesso sem prazo" : expDays > 7 ? `O acesso renova-se dentro de ${expDays} dias` : expDays > 0 ? `⚠️ O acesso termina em ${expDays} dia(s) — ligue outra vez` : "⚠️ O acesso expirou — ligue outra vez"}</div></div>
                   <div className="dash-act">
                     <a className="btn btn-ghost btn-sm" href={`/api/meta/login?ws=${ws.id}`}>Ligar outra vez</a>
+                    <form action={createConnectLink}>{H}<button className="btn btn-ghost btn-sm">Link p/ multilogin</button></form>
                     <form action={disconnectMeta}>{H}<ConfirmButton className="btn btn-ghost btn-sm" msg="Desligar o Facebook deste dashboard? As campanhas deixam de atualizar.">Desligar</ConfirmButton></form>
                   </div>
                 </div>
@@ -93,7 +106,7 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
                   {H}
                   <Secret name="meta_access_token" label="Token de acesso" set={linked}
                     hint="Business Manager → Usuários do sistema → Gerar token com ads_read e ads_management." />
-                  <label>Contas de anúncio (IDs)<input className="input" name="meta_ad_account_ids" defaultValue={ws.meta_ad_account_ids || ""} placeholder="act_123456789, act_987654321" /></label>
+                  <label>Contas de anúncio (IDs)<input className="input" name="meta_ad_account_ids" defaultValue={ws.meta_ad_account_ids || ""} placeholder="act_123456789, act_987654321" autoComplete="off" data-1p-ignore data-lpignore="true" /></label>
                   <div><button className="btn btn-ghost btn-sm">Guardar</button></div>
                 </form>
               </details>
@@ -148,7 +161,7 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
             <h2>Credenciais de API</h2>
             <Secret name="stripe_webhook_secret" label="Stripe — Signing secret do webhook (whsec_...)" set={!!ws.stripe_webhook_secret} hint="Aparece na página do webhook no Stripe, em “Signing secret”." />
             <label>Mapeamento de campos (KashPay / genérico) <span className="note">— deixe vazio para detecção automática</span>
-              <textarea className="input" name="generic_mapping" defaultValue={ws.generic_mapping ? JSON.stringify(ws.generic_mapping, null, 2) : ""}
+              <textarea className="input" autoComplete="off" name="generic_mapping" defaultValue={ws.generic_mapping ? JSON.stringify(ws.generic_mapping, null, 2) : ""}
                 placeholder={`{"external_id":"data.id","status":"data.status","amount":"data.amount","amount_divisor":100}`} /></label>
             <div><button className="btn">Guardar</button></div>
           </form>
@@ -182,8 +195,8 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
           <h2>Pixel / API de Conversões</h2>
           <p className="note">Com o Pixel ligado, o UtmCai envia cada venda aprovada ao Meta pela API de Conversões, para melhorar a otimização das campanhas.</p>
           <div className="row2">
-            <label>Pixel ID<input className="input" name="pixel_id" defaultValue={ws.pixel_id || ""} /></label>
-            <label>Test Event Code (opcional)<input className="input" name="capi_test_event_code" defaultValue={ws.capi_test_event_code || ""} placeholder="TEST1234 — apague depois de testar" /></label>
+            <label>Pixel ID<input className="input" autoComplete="off" data-1p-ignore data-lpignore="true" name="pixel_id" defaultValue={ws.pixel_id || ""} /></label>
+            <label>Test Event Code (opcional)<input className="input" autoComplete="off" data-1p-ignore data-lpignore="true" name="capi_test_event_code" defaultValue={ws.capi_test_event_code || ""} placeholder="TEST1234 — apague depois de testar" /></label>
           </div>
           <Secret name="capi_token" label="Token da API de Conversões" set={!!ws.capi_token} hint="Gerenciador de Eventos → Pixel → Configurações → Gerar token de acesso." />
           <p className="note warn">Se o checkout também envia Purchase pelo Pixel dele, deixe só um dos dois a enviar, para não contar a venda duas vezes.</p>

@@ -86,3 +86,20 @@ export async function disconnectMeta(fd: FormData) {
   if (error) return back(error.message, false);
   back("Facebook desligado deste dashboard");
 }
+
+// Gera um link de ligação para abrir noutro navegador (multilogin)
+export async function createConnectLink(fd: FormData) {
+  const back = mkBack(fd);
+  const wsId = String(fd.get("ws"));
+  const ctx = await assertCanEdit(wsId);
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+    .map((b) => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"[b % 64]).join("");
+  const db = admin();
+  await db.from("connect_links").delete().eq("workspace_id", wsId).is("used_at", null);
+  const { error } = await db.from("connect_links").insert({
+    token, workspace_id: wsId, created_by: ctx.user.id,
+    expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+  });
+  if (error) return back(error.message, false);
+  redirect(`/integracoes?tab=anuncios&link=${token}`);
+}

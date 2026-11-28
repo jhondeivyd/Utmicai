@@ -42,9 +42,28 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
   }
   const app = await appUrl();
 
+  const cartaoApp = ctx.isAdmin ? (
+        <div className="card form" id="appfb" style={{ marginTop: 14 }}>
+          <div className="card-h"><h2>App do Facebook (para o botão “Ligar com Facebook”)</h2>
+            <span className={"badge " + (metaApp.id && metaApp.secret ? "b-approved" : "b-pending")}>{metaApp.id && metaApp.secret ? "Configurada" : "Por configurar"}</span></div>
+          <p className="note">Crie uma app em developers.facebook.com (tipo “Empresa”, produto “Login do Facebook”) e cole aqui os dados. Depois, cada dashboard liga-se com um clique, sem copiar tokens.</p>
+          <CopyBox label="URL de redirecionamento válido — cole nas definições do Login do Facebook da sua app" value={`${app}/api/meta/callback`} />
+          <form action={saveMetaApp} className="form">
+            <div className="row2">
+              <label>ID da App<input className="input" autoComplete="off" data-1p-ignore data-lpignore="true" name="meta_app_id" defaultValue={metaApp.id} placeholder="ex.: 1234567890123456" /></label>
+              <label>Chave secreta da App {metaApp.secret ? <span className="ok">• definida</span> : <span className="mut">• vazia</span>}
+                <input className="input" name="meta_app_secret" type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" placeholder={metaApp.secret ? "deixe vazio para manter" : "cole aqui"} /></label>
+            </div>
+            <div className="inline"><button className="btn">Guardar App</button>
+              {metaApp.id && <label className="note inline"><input type="checkbox" name="clear_app" /> remover a app</label>}</div>
+          </form>
+        </div>
+  ) : null;
+
   return (
     <>
       {msg && <div className={"flash" + (msg.startsWith("e:") ? " e" : "")}>{msg.slice(msg.indexOf(":") + 1)}</div>}
+      {ctx.isAdmin && !(metaApp.id && metaApp.secret) && <div style={{ marginBottom: 14 }}>{cartaoApp}</div>}
       <div className="grid g-adv">
         <div className="card">
           <div className="card-h"><h2>Dashboards</h2></div>
@@ -83,7 +102,7 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
             <form action={addCollaborator} className="form" style={{ marginTop: 10 }}>
               <div className="row2">
                 <label>E-mail<input className="input" name="email" type="email" required /></label>
-                <label>Senha inicial <span className="note">(só se for um utilizador novo)</span><input className="input" name="password" type="text" autoComplete="off" /></label>
+                <label>Senha inicial <span className="note">(só se for um utilizador novo)</span><input className="input" name="password" type="text" autoComplete="new-password" data-1p-ignore data-lpignore="true" /></label>
               </div>
               <div className="row2">
                 <label>Dashboard<select className="input" name="ws" defaultValue={ctx.ws?.id}>{manageable.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
@@ -126,23 +145,7 @@ export default async function Avancado({ searchParams }: { searchParams: Promise
         </div>
       )}
 
-      {ctx.isAdmin && (
-        <div className="card form" style={{ marginTop: 14 }}>
-          <div className="card-h"><h2>App do Facebook (para o botão “Ligar com Facebook”)</h2>
-            <span className={"badge " + (metaApp.id && metaApp.secret ? "b-approved" : "b-pending")}>{metaApp.id && metaApp.secret ? "Configurada" : "Por configurar"}</span></div>
-          <p className="note">Crie uma app em developers.facebook.com (tipo “Empresa”, produto “Login do Facebook”) e cole aqui os dados. Depois, cada dashboard liga-se com um clique, sem copiar tokens.</p>
-          <CopyBox label="URL de redirecionamento válido — cole nas definições do Login do Facebook da sua app" value={`${app}/api/meta/callback`} />
-          <form action={saveMetaApp} className="form">
-            <div className="row2">
-              <label>ID da App<input className="input" name="meta_app_id" defaultValue={metaApp.id} placeholder="ex.: 1234567890123456" /></label>
-              <label>Chave secreta da App {metaApp.secret ? <span className="ok">• definida</span> : <span className="mut">• vazia</span>}
-                <input className="input" name="meta_app_secret" type="password" autoComplete="off" placeholder={metaApp.secret ? "deixe vazio para manter" : "cole aqui"} /></label>
-            </div>
-            <div className="inline"><button className="btn">Guardar App</button>
-              {metaApp.id && <label className="note inline"><input type="checkbox" name="clear_app" /> remover a app</label>}</div>
-          </form>
-        </div>
-      )}
+      {ctx.isAdmin && metaApp.id && metaApp.secret && cartaoApp}
 
       {editing && (
         <>

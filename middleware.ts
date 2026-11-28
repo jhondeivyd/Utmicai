@@ -14,12 +14,12 @@ export async function middleware(req: NextRequest) {
     }
   });
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user && !req.nextUrl.pathname.startsWith("/login") && !req.nextUrl.pathname.startsWith("/cadastro")) {
+  if (!user && !req.nextUrl.pathname.startsWith("/login") && !req.nextUrl.pathname.startsWith("/cadastro") && !req.nextUrl.pathname.startsWith("/ligar") && !req.nextUrl.pathname.startsWith("/ligado")) {
     const url = req.nextUrl.clone(); url.pathname = "/login"; return NextResponse.redirect(url);
   }
   return res;
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|utmcai.js|favicon.ico|login|cadastro).*)"]
+  matcher: ["/((?!api|_next|utmcai.js|favicon.ico|login|cadastro|ligar|ligado).*)"]
 };
